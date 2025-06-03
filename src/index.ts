@@ -63,6 +63,11 @@ app.use("/auth", authRoutes);
 app.use(jwtAuthMiddleware);
 app.use("/", mainRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (process.env.VERCEL) {
+  // Export the handler for Vercel serverless
+  module.exports = app;
+} else {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
