@@ -18,6 +18,9 @@
     "mongoose": "^8.15.1",
     "nodemon": "^3.1.10"
   },
+  "_moduleAliases": {
+    "@": "src"
+  },
   "devDependencies": {
     "@types/cors": "^2.8.18",
     "@types/express": "^5.0.2",
@@ -26,8 +29,5 @@
     "@types/node": "^22.15.29",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
-  },
-  "_moduleAliases": {
-    "@": "src"
   }
 }
