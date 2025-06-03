@@ -35,10 +35,6 @@ app.use(
   })
 );
 
-// MongoDB connection
-const MONGO_URI = process.env.MONGO_URI || "";
-connectDB(MONGO_URI);
-
 app.use(express.json());
 
 // JWT auth middleware (register before mainRoutes)
@@ -63,10 +59,22 @@ app.use("/auth", authRoutes);
 app.use(jwtAuthMiddleware);
 app.use("/", mainRoutes);
 
+let isConnected = false;
+
+async function vercelHandler(req: any, res: any) {
+  if (!isConnected) {
+    const MONGO_URI = process.env.MONGO_URI || "";
+    await connectDB(MONGO_URI);
+    isConnected = true;
+  }
+  app(req, res);
+}
+
 if (process.env.VERCEL) {
-  // Export the handler for Vercel serverless
-  module.exports = app;
+  module.exports = vercelHandler;
 } else {
+  const MONGO_URI = process.env.MONGO_URI || "";
+  connectDB(MONGO_URI);
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
