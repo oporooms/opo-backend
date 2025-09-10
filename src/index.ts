@@ -90,24 +90,24 @@ const isOriginAllowed = (origin?: string): boolean => {
   }
 };
 
-// app.use(
-//   cors({
-//     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-//       if (isOriginAllowed(origin)) {
-//         callback(null, true);
-//       } else {
-//         callback(new Error("Not allowed by CORS"));
-//       }
-//     },
-//     credentials: true,
-//     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-//     allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Requested-With"],
-//     exposedHeaders: ["Content-Length", "ETag"],
-//     maxAge: 86400, // cache preflight 24h
-//     optionsSuccessStatus: 204,
-//     preflightContinue: false,
-//   })
-// );
+app.use(
+  cors({
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Requested-With"],
+    exposedHeaders: ["Content-Length", "ETag"],
+    maxAge: 86400, // cache preflight 24h
+    optionsSuccessStatus: 204,
+    preflightContinue: false,
+  })
+);
 
 app.use(express.json());
 
