@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import { IUser } from "../schemas/UserSchema";
+import { Request } from "express";
+import { IUser } from "./user";
 
 export interface SendOtpRequest extends Request {
   body: {
@@ -18,22 +18,8 @@ export interface RegisterRequest extends Request {
   body: IUser;
 }
 
-export interface RegisterResponse {
-  message: string;
-  success: boolean;
-  data?: IUser;
-  error?: any;
-}
-
 export interface LoginRequest extends Request {
   body: {
     phone: string;
   };
-}
-
-export interface LoginResponse {
-  message: string;
-  success: boolean;
-  data?: IUser;
-  error?: any;
 }

@@ -3,14 +3,13 @@ import {
   register,
   login,
   sendOtp,
-  verifyOtp,
 } from "@/controllers/authController";
+import { loginRateLimiter } from "@/middleware/rateLimit";
 
 const router = Router();
 
 router.post("/sendOtp", sendOtp);
-router.post("/verifyOtp", verifyOtp);
 router.post("/register", register);
-router.post("/login", login);
+router.post("/login", loginRateLimiter, login);
 
 export default router;

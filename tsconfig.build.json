@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    // Exclude front-end specific type with React and missing imports from backend build
+    "src/types/Bus/Checkout.ts"
+  ]
+}

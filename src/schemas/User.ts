@@ -1,58 +1,10 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 import { formatIndianPhoneNumber } from "../functions";
-
-export enum UserRole {
-  SADMIN = "SADMIN",
-  ViewAdmin = "ViewAdmin",
-  CADMIN = "CADMIN",
-  HR = "HR",
-  EMPLOYEE = "EMPLOYEE",
-  HotelOwner = "HotelOwner",
-  USER = "USER",
-}
-
-export enum UserStatus {
-  PENDING = "pending",
-  APPROVED = "approved",
-  REJECTED = "rejected",
-}
-
-export interface IUser extends Document {
-  username: string;
-  userRole: UserRole;
-  email: string;
-  photo: string;
-  fullname: string;
-  contact1: string;
-  wallet: number;
-  status: UserStatus;
-  gstDetails: {
-    gstNo: string;
-    gstName: string;
-    gstAddress: {
-      address: string;
-      state: string;
-      pincode: string;
-    };
-  };
-  address?: string;
-  dob?: Date;
-  gender?: string;
-  createdBy?: string;
-  companyId?: string | null;
-  hrId?: string | null;
-  passportDetails?: {
-    passportNo: string;
-    passportExpiry: string;
-    passportIssue: string;
-  };
-  panNo?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+import { IUser, UserRole, UserStatus } from "@/types/user";
+const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const UserSchema = new Schema<IUser>({
-  username: { type: String, unique: true, default: `user_${Date.now()}` },
+  username: { type: String, unique: true, default: `user_${Date.now()}`, },
   userRole: {
     type: String,
     required: true,
@@ -72,11 +24,11 @@ const UserSchema = new Schema<IUser>({
   },
   photo: { type: String },
   fullname: { type: String, required: true },
-  contact1: {
+  phone: {
     type: String,
     required: true,
     unique: true,
-    set: (v: string) => `91${formatIndianPhoneNumber(v).cleanedPhone}`,
+    set: (v: string) => formatIndianPhoneNumber(v).cleanedPhone,
     validate: {
       validator: (v: string) => {
         return formatIndianPhoneNumber(v).ErrorCode === 0;
@@ -105,8 +57,8 @@ const UserSchema = new Schema<IUser>({
   dob: { type: Date, default: null },
   gender: { type: String, default: "" },
   createdBy: { type: String, default: "" },
-  companyId: { type: String, default: null },
-  hrId: { type: String, default: null },
+  companyId: { type: Types.ObjectId, default: null, ref: 'User' },
+  hrId: { type: Types.ObjectId, default: null, ref: 'User' },
   passportDetails: {
     passportNo: { type: String, default: "" },
     passportExpiry: { type: String, default: "" },
@@ -117,4 +69,23 @@ const UserSchema = new Schema<IUser>({
   updatedAt: { type: Date, default: Date.now },
 });
 
-export default mongoose.model<IUser>("User", UserSchema, "Users");
+UserSchema.pre('validate', function (next) {
+  const requiredFields = ['username', 'userRole', 'email', 'fullname', 'phone'];
+  const self = this as any;
+  for (const field of requiredFields) {
+    if (!self[field] || (typeof self[field] === 'string' && self[field].trim() === '')) {
+      self.invalidate(field, `${field} is required`);
+    }
+  }
+  next();
+});
+
+UserSchema.plugin(AutoIncrement, {
+  id: 'userUId',
+  inc_field: 'userUId',
+  start_seq: 10000,
+});
+
+UserSchema.index({ userUId: 1 });
+
+export default mongoose.model<IUser>("User", UserSchema, "User");

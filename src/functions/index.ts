@@ -1,33 +1,6 @@
+import { FlightSegment } from "@/types/Flight/FlightData";
 
-export function compareArray<T extends object>(array1: T[], array2: T[], key: keyof T): boolean {
-    const keySet1 = new Set(array1.map(obj => obj[key]));
-    const keySet2 = new Set(array2.map(obj => obj[key]));
-
-    // Compare the sets to check for equality
-    return keySet1.size === keySet2.size && [...keySet1].every(key => keySet2.has(key));
-}
-
-export function debounce<T extends (...args: any[]) => void>(
-    func: T,
-    delay: number
-): (...args: Parameters<T>) => void {
-    let timeout: ReturnType<typeof setTimeout>;
-    return function (this: unknown, ...args: Parameters<T>) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => {
-            func.apply(this, args); // Explicitly binds 'this' to the debounced function
-        }, delay);
-    };
-}
-
-export function newDate(d: Date) {
-    const date = new Date(d)
-    date.setHours(0, 0, 0, 0)
-
-    return date
-}
-
-export function formatIndianPhoneNumber(phone: string): {
+export function formatIndianPhoneNumber(phone: string | number): {
     cleanedPhone?: string;
     ErrorCode: number;
     ErrorMessage: string;
@@ -73,45 +46,40 @@ export function validateEmail(email: string): { cleanedEmail?: string, ErrorCode
     return { cleanedEmail, ErrorCode: 0, ErrorMessage: "" };
 }
 
-export function validatePhone(
-    phone: string
-): { cleanedPhone?: string, ErrorCode: number; ErrorMessage: string } {
-    // Clean the input by removing extra spaces
-    const cleaned: string = String(phone).trim();
-    if (cleaned.length === 0) {
-        return { ErrorCode: 1, ErrorMessage: "Phone number is empty" };
-    }
-
-    // Regex explanation:
-    // ^(?:\+91|0|91)? - Optionally match country code +91, 0, or 91
-    // ([6-9]\d{9})$ - Capture exactly 10 digits starting with a digit between 6 and 9
-    const phoneRegex: RegExp = /^(?:\+91|0|91)?([6-9]\d{9})$/;
-    const match: RegExpMatchArray | null = cleaned.match(phoneRegex);
-
-    if (!match) {
-        // Determine error based on possible input characteristics
-        if (!/^(?:\+91|0|91)?/.test(cleaned)) {
-            return {
-                ErrorCode: 1,
-                ErrorMessage:
-                    "Country code is invalid. It should start with +91, 0, or 91 if provided."
-            };
-        }
-        return {
-            ErrorCode: 1,
-            ErrorMessage:
-                "Invalid phone number format. Phone number must have exactly 10 digits starting with a number between 6 and 9."
-        };
-    }
-
-    // Return the normalized 10-digit phone number
-    return {
-        cleanedPhone: match[1],
-        ErrorCode: 0,
-        ErrorMessage: ""
-    };
+export function overallClassification(segments: FlightSegment[]): 'domestic' | 'international' {
+    const isAnyInternational = segments.some(seg => seg.Origin.CountryCode !== seg.Destination.CountryCode);
+    return isAnyInternational ? 'international' : 'domestic';
 }
 
-export function isAlphabetic(str: string): boolean {
-    return /^[A-Za-z\s]+$/.test(str);
-}
+// utils/sleep.ts
+export const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+export const removeNoSqlInjection = (input: string): string => {
+    // Stronger sanitization against common MongoDB operator / traversal injection
+    if (typeof input !== 'string') return '';
+
+    let value = input.trim();
+
+    // Remove null bytes
+    value = value.replace(/\0/g, '');
+
+    // Neutralize known MongoDB query/operator prefixes by stripping leading $
+    value = value.replace(
+        /\$(?:ne|gt|lt|gte|lte|in|nin|or|and|nor|not|regex|where|expr|function|jsonSchema|options)\b/gi,
+        m => m.slice(1)
+    );
+
+    // Remove any remaining lone $ starting a token
+    value = value.replace(/(^|[\s,{[])\$/g, '$1');
+
+    // Prevent dot-notation key traversal
+    value = value.replace(/\./g, '_');
+
+    // Escape regex metacharacters (if later inserted into a dynamic RegExp)
+    value = value.replace(/([.*+?^${}()|[\]\\])/g, '\\$1');
+
+    // Enforce a reasonable max length to avoid abuse
+    if (value.length > 1024) value = value.slice(0, 1024);
+
+    return value;
+};
