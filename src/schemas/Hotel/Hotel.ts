@@ -1,5 +1,4 @@
 import mongoose, { Schema, model } from 'mongoose';
-import { connection } from 'mongoose';
 const AutoIncrement = require('mongoose-sequence')(mongoose);
 import { HotelStatus, IHotel } from '@/types/hotel';
 import axios from 'axios';

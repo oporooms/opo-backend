@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { createHotel, createHotelWithRooms, deleteHotel, deleteMultipleHotels, getAllHotels, updateHotel } from '@/controllers/hotels';
+import { searchCityForHotel } from '@/controllers/search';
 
 const hotelRouter = Router();
 
 // POST routes
+hotelRouter.get('/searchCity', searchCityForHotel);
 hotelRouter.post('/', createHotel);
 hotelRouter.post('/with-rooms', createHotelWithRooms); // Create a hotel with rooms
 hotelRouter.post('/delete-many', deleteMultipleHotels) // Delete many hotels with specific ids: string[]

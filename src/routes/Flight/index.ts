@@ -4,7 +4,7 @@ import { Router } from "express";
 const flightRouter = Router();
 
 //GET routes
-flightRouter.get('/getFlightAirportList', getFlightAirportList)
+flightRouter.get('/searchAirport', getFlightAirportList)
 flightRouter.get('/searchFlight', searchFlight)
 flightRouter.get('/getFareRules', getFareRules)
 flightRouter.get('/getConfirmationFare', getConfirmationFare)

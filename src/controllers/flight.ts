@@ -16,6 +16,7 @@ import Booking from "@/schemas/Booking";
 import { Types } from "mongoose";
 import { Bookings, BookingStatus, PaymentMode } from "@/types/oldcode/Booking";
 import axios from "axios";
+import { removeNoSqlInjection } from "@/functions";
 
 const isDevelopment = process.env.NODE_ENV == 'development'
 
@@ -30,107 +31,86 @@ const apiEndPoints = {
 }
 
 export const getFlightAirportList = async (
-    req: Request<{
-        id?: number | string;
-        code?: string;
-        name?: string;
-        country_name?: string;
-        country_code?: string;
-        city_name?: string;
-        city_code?: string;
-        airportorder?: number | string | null;
-        skip?: number;
+    req: Request<{}, {}, {}, {
+        city_name: string,
     }>,
     res: Response<DefaultResponseBody<{ list: FlightAirportList[]; count: number }>>
 ) => {
-    const { id, code, name, country_name, country_code, city_name, city_code, airportorder, skip } = req.query;
+    const { city_name = removeNoSqlInjection(req.query.city_name) } = req.query
     const query: any = {};
 
-    if (id) query.id = id;
-    if (city_name) query.city_name = new RegExp(String(city_name).trim(), 'i');
-    if (airportorder) query.airportorder = airportorder;
-    if (code) query.code = new RegExp(String(code).trim(), 'i');
-    if (name) query.name = new RegExp(String(name).trim(), 'i');
-    if (country_name) query.country_name = new RegExp(String(country_name).trim(), 'i');
-    if (country_code) query.country_code = new RegExp(String(country_code).trim(), 'i');
-    if (city_code) query.city_code = new RegExp(String(city_code).trim(), 'i');
+    if (city_name) {
+        const trimmed = String(city_name).trim();
+        if (trimmed.length < 3) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "Minimum 3 letters required for city_name"
+                }
+            });
+
+            return
+        }
+        query.city_name = new RegExp(trimmed, 'i');
+    }
 
     let flightList: FlightAirportList[] = [];
 
     try {
+        const q = String(city_name).trim();
+        const esc = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const prefixSlice = q.length >= 3 ? esc.slice(0, 3) : esc;
+        const fullRegex = { $regex: esc, $options: "i" };
+        const prefixRegex = { $regex: "^" + prefixSlice, $options: "i" };
 
-        if (query.code) {
-            const codeData = await FlightAirportListSchema.find({ code: query.code })
-                .skip(Number(skip) * 10)
-                .limit(10)
-                .lean();
-            flightList = flightList.concat(codeData);
-        }
+        console.log("Searching for airport with query:", query);
 
-        if (query.city_name) {
-            const cityData = await FlightAirportListSchema.find({ city_name: query.city_name })
-                .skip(Number(skip) * 10)
-                .limit(10).lean()
-            flightList = cityData;
-        }
+        const orConditions: any[] = [
+            // numeric city id search (exact)
+            ...(/^\d+$/.test(q) ? [{ city_id: Number(q) }] : []),
 
-        if (query.country_name) {
-            const countryData = await FlightAirportListSchema.find({ country_name: query.country_name })
-                .skip(Number(skip) * 10)
-                .limit(10)
-                .lean();
-            flightList = flightList.concat(countryData);
-        }
+            // full (anywhere) matches
+            { city_name: fullRegex },
+            { airport_name: fullRegex },
+            { airport_code: fullRegex },
+            { state_province: fullRegex },
+            { state_province_code: fullRegex },
+            { country_name: fullRegex },
+            { country_code: fullRegex },
 
-        if (query.name) {
-            const nameData = await FlightAirportListSchema.find({ name: query.name })
-                .skip(Number(skip) * 10)
-                .limit(10)
-                .lean()
-            flightList = flightList.concat(nameData);
-        }
+            // prefix matches (first 3 letters)
+            { city_name: prefixRegex },
+            { airport_name: prefixRegex },
+            { airport_code: prefixRegex },
+            { state_province: prefixRegex },
+            { state_province_code: prefixRegex },
+            { country_name: prefixRegex }
+        ];
 
-        if (query.country_code) {
-            const countryCodeData = await FlightAirportListSchema.find({ country_code: query.country_code })
-                .skip(Number(skip) * 10)
-                .limit(10)
-                .lean();
-            flightList = flightList.concat(countryCodeData);
-        }
+        // Aggregation: filter, prioritize India, sort and project to expected keys
+        flightList = await FlightAirportListSchema.aggregate([
+            { $match: { $or: orConditions } },
+            { $addFields: { _priority: { $cond: [{ $eq: ["$country_name", "India"] }, 2, 1] } } },
+            { $sort: { _priority: -1 } },
+            {
+                $project: {
+                    _id: 0,
+                    city_id: "$city_id",
+                    city_name: "$city_name",
+                    airport_name: "$airport_name",
+                    airport_code: "$airport_code",
+                    state_province: "$state_province",
+                    state_province_code: "$state_province_code",
+                    country_name: "$country_name",
+                    country_code: "$country_code"
+                }
+            }
+        ]);
 
-        if (query.city_code) {
-            const cityCodeData = await FlightAirportListSchema.find({ city_code: query.city_code })
-                .skip(Number(skip) * 10)
-                .limit(10)
-                .lean();
-            flightList = flightList.concat(cityCodeData);
-        }
+        console.log("Flight Airport List:", flightList);
 
-        // Remove duplicate items based on their unique identifier
-        const uniqueFlights = new Map<string, FlightAirportList>();
-        flightList.forEach(item => {
-            // Assumes that each item has a unique _id property; fallback to JSON stringify if not present.
-            const id = item._id ? item._id.toString() : JSON.stringify(item);
-            uniqueFlights.set(id, item);
-        });
-
-        const uniqueFlightsArray = Array.from(uniqueFlights.values());
-        uniqueFlightsArray.sort((a, b) => {
-            if (a.country_name === 'India' && b.country_name !== 'India') return -1;
-            if (a.country_name !== 'India' && b.country_name === 'India') return 1;
-            return 0;
-        });
-
-        // Replace the map's values with the sorted array items.
-        uniqueFlights.clear();
-        uniqueFlightsArray.forEach(item => {
-            const id = item._id ? item._id.toString() : JSON.stringify(item);
-            uniqueFlights.set(id, item);
-        });
-
-        flightList = Array.from(uniqueFlights.values());
-        const count = await FlightAirportListSchema.countDocuments(query);
-
+        const count = await FlightAirportListSchema.countDocuments({ $or: orConditions });
 
         res.status(200).json({
             data: {

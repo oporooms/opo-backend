@@ -1,4 +1,4 @@
-import Hotel from "@/schemas/Hotel";
+import Hotel from "@/schemas/Hotel/Hotel";
 import Room from "@/schemas/Room";
 import User from "@/schemas/User";
 import { DefaultResponseBody } from "@/types/default";
