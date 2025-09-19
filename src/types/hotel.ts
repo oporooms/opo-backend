@@ -74,4 +74,11 @@ export interface SearchHotel {
     skip: string;
     limit: string;
     nextId: string;
+    checkIn: string;
+    checkOut: string;
+    cityId: string;
+    rooms: string;
+    adults: string;
+    child: string;
+    childAge: string[];
 }

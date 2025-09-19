@@ -74,8 +74,6 @@ export const searchCityForHotel = async (
         }
     ])
 
-    console.log(`Search results for city "${city_name}":`, result)
-
     if (result.length === 0) {
         res.status(404).json({
             data: null,
@@ -84,8 +82,6 @@ export const searchCityForHotel = async (
 
         return
     }
-
-    console.log(`Found ${result.length} results for city:`, city_name);
 
     res.status(200).json({
         data: result,

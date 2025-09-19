@@ -67,24 +67,22 @@ export const getFlightAirportList = async (
         console.log("Searching for airport with query:", query);
 
         const orConditions: any[] = [
-            // numeric city id search (exact)
-            ...(/^\d+$/.test(q) ? [{ city_id: Number(q) }] : []),
+            // exact city_code match when query is numeric
+            ...(/^\d+$/.test(q) ? [{ city_code: q }] : []),
 
             // full (anywhere) matches
             { city_name: fullRegex },
-            { airport_name: fullRegex },
-            { airport_code: fullRegex },
-            { state_province: fullRegex },
-            { state_province_code: fullRegex },
+            { name: fullRegex },
+            { code: fullRegex },
+            { city_code: fullRegex },
             { country_name: fullRegex },
             { country_code: fullRegex },
 
             // prefix matches (first 3 letters)
             { city_name: prefixRegex },
-            { airport_name: prefixRegex },
-            { airport_code: prefixRegex },
-            { state_province: prefixRegex },
-            { state_province_code: prefixRegex },
+            { name: prefixRegex },
+            { code: prefixRegex },
+            { city_code: prefixRegex },
             { country_name: prefixRegex }
         ];
 
@@ -96,19 +94,17 @@ export const getFlightAirportList = async (
             {
                 $project: {
                     _id: 0,
-                    city_id: "$city_id",
-                    city_name: "$city_name",
-                    airport_name: "$airport_name",
-                    airport_code: "$airport_code",
-                    state_province: "$state_province",
-                    state_province_code: "$state_province_code",
-                    country_name: "$country_name",
-                    country_code: "$country_code"
+                    id: 1,
+                    code: 1,
+                    name: 1,
+                    city_code: 1,
+                    city_name: 1,
+                    country_name: 1,
+                    country_code: 1,
+                    airportorder: 1
                 }
             }
         ]);
-
-        console.log("Flight Airport List:", flightList);
 
         const count = await FlightAirportListSchema.countDocuments({ $or: orConditions });
 
@@ -138,7 +134,12 @@ export const searchFlight = async (
     req: Request<FlightSearchProps>,
     res: Response<DefaultResponseBody<FlightData>>
 ) => {
-    const searchParams = req.params;
+    console.log({
+        params: req.params,
+        query: req.query,
+        body: req.body
+    })
+    const searchParams = req.query;
 
     switch (true) {
         case !searchParams.departureCity:
@@ -149,6 +150,8 @@ export const searchFlight = async (
                     Message: "Please provide OriginId",
                 }
             });
+
+            return
         case !searchParams.arrivalCity:
             res.status(400).json({
                 data: null,
@@ -157,6 +160,8 @@ export const searchFlight = async (
                     Message: "Please provide DestinationId",
                 }
             });
+
+            return
         case !searchParams.departureDate:
             res.status(400).json({
                 data: null,
@@ -173,7 +178,8 @@ export const searchFlight = async (
                     Message: "Please provide AdultCount",
                 }
             });
-        case searchParams.JourneyType == 2 && !searchParams.returnDate:
+            return
+        case Number(searchParams.JourneyType) == 2 && !searchParams.returnDate:
             res.status(400).json({
                 data: null,
                 Status: {
@@ -181,7 +187,8 @@ export const searchFlight = async (
                     Message: "Please provide ReturnDate",
                 }
             });
-        case searchParams.returnDate && Number(searchParams.JourneyType) == 2 && dayjs(searchParams.returnDate).isBefore(dayjs(searchParams.departureDate)):
+            return
+        case searchParams.returnDate && Number(searchParams.JourneyType) == 2 && dayjs(String(searchParams.returnDate)).isBefore(dayjs(String(searchParams.departureDate))):
             res.status(400).json({
                 data: null,
                 Status: {
@@ -189,6 +196,7 @@ export const searchFlight = async (
                     Message: "Return Date should be greater than Departure Date",
                 }
             });
+            return
         case Number(searchParams.JourneyType) == 2 && searchParams.departureCity == searchParams.arrivalCity:
             res.status(400).json({
                 data: null,
@@ -197,6 +205,7 @@ export const searchFlight = async (
                     Message: "Origin and Destination should not be same for Round-trip Journey",
                 }
             });
+            return
         case Number(searchParams.JourneyType) == 1 && searchParams.departureCity == searchParams.arrivalCity:
             res.status(400).json({
                 data: null,
@@ -205,7 +214,8 @@ export const searchFlight = async (
                     Message: "Origin and Destination should not be same for One-way Journey",
                 }
             });
-        case searchParams.adults < 1:
+            return
+        case Number(searchParams.adults) < 1:
             res.status(400).json({
                 data: null,
                 Status: {
@@ -213,6 +223,7 @@ export const searchFlight = async (
                     Message: "AdultCount should be greater than 0",
                 }
             });
+            return
         case (Number(searchParams.adults) + Number(searchParams.children) + Number(searchParams.infants)) > 9:
             res.status(400).json({
                 data: null,
@@ -221,6 +232,7 @@ export const searchFlight = async (
                     Message: "Total Passenger Count should not be greater than 9",
                 }
             });
+            return
         default:
             break;
     }
@@ -238,13 +250,13 @@ export const searchFlight = async (
             {
                 "Origin": searchParams.departureCity,
                 "Destination": searchParams.arrivalCity,
-                "PreferredTime": dayjs(searchParams.departureDate).format('YYYY-MM-DDTHH:mm:ss'),
+                "PreferredTime": dayjs(String(searchParams.departureDate)).format('YYYY-MM-DDTHH:mm:ss'),
             },
             ...(Number(searchParams.JourneyType) === 2
                 ? [{
                     "Origin": searchParams.arrivalCity,
                     "Destination": searchParams.departureCity,
-                    "PreferredTime": dayjs(searchParams.returnDate).format('YYYY-MM-DDTHH:mm:ss'),
+                    "PreferredTime": dayjs(String(searchParams.returnDate)).format('YYYY-MM-DDTHH:mm:ss'),
                 }]
                 : [])
         ],
@@ -262,6 +274,7 @@ export const searchFlight = async (
                     Message: "Success"
                 }
             });
+            return;
         } else {
             res.status(400).json({
                 data: response,
@@ -270,6 +283,7 @@ export const searchFlight = async (
                     Message: response.Error.ErrorMessage
                 }
             });
+            return;
         }
     } catch (error) {
         res.status(500).json({
@@ -279,6 +293,7 @@ export const searchFlight = async (
                 Message: "Internal Server Error"
             }
         });
+        return;
     }
 }
 

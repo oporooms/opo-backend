@@ -15,4 +15,4 @@ const FlightAirportListSchema: Schema = new Schema(
     }
 )
 
-export default mongoose.model<FlightAirportList>("FlightAirportList", FlightAirportListSchema);
+export default mongoose.model<FlightAirportList>("FlightAirportList", FlightAirportListSchema, "FlightAirportList");
