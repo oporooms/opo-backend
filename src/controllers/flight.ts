@@ -14,7 +14,7 @@ import { Passengers } from "@/types/Flight/Booking";
 import { CancelBookingResponse } from "@/types/Flight/CancelBooking";
 import Booking from "@/schemas/Booking";
 import { Types } from "mongoose";
-import { Bookings, BookingStatus, PaymentMode } from "@/types/oldcode/Booking";
+import { Bookings, BookingStatus, PaymentMode } from "@/types/booking";
 import axios from "axios";
 import { removeNoSqlInjection } from "@/functions";
 
@@ -531,9 +531,9 @@ export const bookFlight = async (
                 });
             }
 
-            if (booking?.bookingDetails.status === BookingStatus.booked) {
+            if (booking?.status === BookingStatus.BOOKED) {
                 return res.status(200).json({
-                    data: booking?.bookingDetails.ifFlightBooked?.otherDetails as IGetBookingDetailsResponse,
+                    data: booking?.bookingDetails.ifFlightBooked?.bookingResult as IGetBookingDetailsResponse,
                     Status: {
                         Code: 200,
                         Message: "Success",
@@ -545,11 +545,11 @@ export const bookFlight = async (
         const params = {
             UserIp: "122.161.66.42",
             SearchTokenId:
-                (booking?.bookingDetails.ifFlightBooked?.otherDetails as FareConfirmation)?.SearchTokenId || SearchTokenId,
+                (booking?.bookingDetails.ifFlightBooked?.fareConfirmation as FareConfirmation)?.SearchTokenId || SearchTokenId,
             ResultIndex:
-                (booking?.bookingDetails.ifFlightBooked?.otherDetails as FareConfirmation)?.Result?.ResultIndex || ResultIndex,
+                (booking?.bookingDetails.ifFlightBooked?.fareConfirmation as FareConfirmation)?.Result?.ResultIndex || ResultIndex,
             Passengers:
-                booking?.bookingDetails.ifFlightBooked?.passengers?.map(({ _id, ...item }) => ({
+                booking?.bookingDetails.ifFlightBooked?.travellers?.map(({ ...item }) => ({
                     ...item,
                     DateOfBirth: dayjs(item.DateOfBirth).format("YYYY-MM-DD[T]00:00:00"),
                 })) ||
@@ -573,7 +573,7 @@ export const bookFlight = async (
                     {
                         $set: {
                             "bookingDetails.ifFlightBooked.otherDetails": getBookingDetailsResponse,
-                            "bookingDetails.status": BookingStatus.booked,
+                            "bookingDetails.status": BookingStatus.BOOKED,
                         },
                     }
                 );
@@ -703,7 +703,7 @@ export const cancelFlightBooking = async (
             });
         }
 
-        if (booking?.bookingDetails.status === BookingStatus.cancelled) {
+        if (booking?.status === BookingStatus.CANCELLED) {
             res.status(400).json({
                 data: null,
                 Status: {
@@ -713,7 +713,7 @@ export const cancelFlightBooking = async (
             });
         }
 
-        const flightData = booking?.bookingDetails.ifFlightBooked?.otherDetails as IGetBookingDetailsResponse;
+        const flightData = booking?.bookingDetails.ifFlightBooked?.bookingResult as IGetBookingDetailsResponse;
 
         const data = {
             UserIp: "49.36.217.215",

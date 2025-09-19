@@ -1,4 +1,4 @@
-import { Bookings } from "@/types/oldcode/Booking";
+import { Bookings } from "@/types/booking";
 import { Schema, model } from "mongoose";
 
 // Lightweight, robust schema matching the provided JSON Schema while

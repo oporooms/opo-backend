@@ -7,6 +7,19 @@ import { Passenger } from "./Bus/Passenger";
 import { BlockSeat } from "./Bus/BlockSeat";
 import { IGetBookingDetails } from "./Bus/GetBookingDetails";
 
+
+export enum BookingStatus {
+    PENDING = "pending",
+    BOOKED = "booked",
+    CANCELLED = "cancelled",
+}
+
+export enum PaymentStatus {
+    pending = "pending",
+    success = "success",
+    declined = "declined",
+}
+
 const enum BookingType {
     Hotel = "Hotel",
     Flight = "Flight",
@@ -19,6 +32,12 @@ const enum CompanyApproval {
     Pending = "Pending",
     Approved = "Approved",
     Rejected = "Rejected"
+}
+
+export enum PaymentMode {
+    payAtHotel = "Pay at hotel",
+    payByCompany = "Pay by company",
+    onlinePay = "Online Pay",
 }
 
 interface HotelDetails {
@@ -45,7 +64,7 @@ interface BusDetails {
     blockSeat: BlockSeat,
     bookingResult: IGetBookingDetails
 }
-interface TrainDetails {}
+interface TrainDetails { }
 interface PackageDetails {
     packageId: ObjectId,
     packageName: string,
@@ -176,10 +195,9 @@ interface OutSideHotelDetails {
     rooms: number,
 }
 
-export interface BookingStatus {}
-
-export interface Booking {
+export interface Bookings {
     userId: ObjectId[] | string[],
+    bookingId: string,
     bookingType: BookingType,
     bookingDate: Date,
     bookingDetails: {
@@ -192,4 +210,29 @@ export interface Booking {
         ifOutSideHotelBooked: OutSideHotelDetails
     },
     status: BookingStatus,
+    createdBy: ObjectId | string,
+    gstDetails: {
+        gstNo: string,
+        gstName: string,
+        gstAddress: {
+            address: string,
+            pincode: string,
+            state: string,
+        }
+    },
+    payment: {
+        cost: number,
+        fee: number,
+        mode: PaymentMode,
+        status: PaymentStatus,
+        total: number,
+        transactionDetails: {
+            date: Date | null,
+            id: string,
+            mode: PaymentMode,
+            orderId: string,
+        }
+    },
+    createdAt: Date,
+    updatedAt: Date,
 }
