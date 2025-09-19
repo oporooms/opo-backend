@@ -38,124 +38,124 @@ export const searchHotel = async (
         RoomGuests,
         NoOfNights,
         ResultCount,
-        GuestNationality,
-        CountryCode,
+        GuestNationality="IN",
+        CountryCode="IN",
         CityName,
-        MaxRating,
-        MinRating,
+        MaxRating="5",
+        MinRating="1",
     } = req.body
 
     let providedNights = req.body.NoOfNights
 
     // if NoOfNights not provided or invalid, compute it from CheckInDate and CheckOutDate
-    if ((providedNights === undefined || providedNights === null || isNaN(Number(providedNights)) || Number(providedNights) <= 0) && CheckInDate && CheckOutDate) {
-        const ciEarly = dayjs(CheckInDate)
-        const coEarly = dayjs(CheckOutDate)
-        if (ciEarly.isValid() && coEarly.isValid() && coEarly.isAfter(ciEarly)) {
-            providedNights = coEarly.diff(ciEarly, 'day')
-        }
-    }
+    // if ((providedNights === undefined || providedNights === null || isNaN(Number(providedNights)) || Number(providedNights) <= 0) && CheckInDate && CheckOutDate) {
+    //     const ciEarly = dayjs(CheckInDate)
+    //     const coEarly = dayjs(CheckOutDate)
+    //     if (ciEarly.isValid() && coEarly.isValid() && coEarly.isAfter(ciEarly)) {
+    //         providedNights = coEarly.diff(ciEarly, 'day')
+    //     }
+    // }
 
-    // required fields
-    if (!CheckInDate || !CheckOutDate) {
-        res.status(400).json({
-            data: null,
-            Status: { Code: 400, Message: 'CheckInDate and CheckOutDate are required' }
-        })
+    // // required fields
+    // if (!CheckInDate || !CheckOutDate) {
+    //     res.status(400).json({
+    //         data: null,
+    //         Status: { Code: 400, Message: 'CheckInDate and CheckOutDate are required' }
+    //     })
 
-        return
-    }
+    //     return
+    // }
 
-    const ci = dayjs(CheckInDate)
-    const co = dayjs(CheckOutDate)
+    // const ci = dayjs(CheckInDate)
+    // const co = dayjs(CheckOutDate)
 
-    if (!ci.isValid() || !co.isValid()) {
-        res.status(400).json({
-            data: null,
-            Status: { Code: 400, Message: 'CheckInDate or CheckOutDate is not a valid date' }
-        })
+    // if (!ci.isValid() || !co.isValid()) {
+    //     res.status(400).json({
+    //         data: null,
+    //         Status: { Code: 400, Message: 'CheckInDate or CheckOutDate is not a valid date' }
+    //     })
 
-        return
-    }
+    //     return
+    // }
 
-    if (!co.isAfter(ci)) {
-        res.status(400).json({
-            data: null,
-            Status: { Code: 400, Message: 'CheckOutDate must be after CheckInDate' }
-        })
+    // if (!co.isAfter(ci)) {
+    //     res.status(400).json({
+    //         data: null,
+    //         Status: { Code: 400, Message: 'CheckOutDate must be after CheckInDate' }
+    //     })
 
-        return
-    }
+    //     return
+    // }
 
-    if (DestinationCityId === undefined || DestinationCityId === null || isNaN(Number(DestinationCityId))) {
-        res.status(400).json({
-            data: null,
-            Status: { Code: 400, Message: 'DestinationCityId is required and must be a number' }
-        })
-        return
-    }
+    // if (DestinationCityId === undefined || DestinationCityId === null || isNaN(Number(DestinationCityId))) {
+    //     res.status(400).json({
+    //         data: null,
+    //         Status: { Code: 400, Message: 'DestinationCityId is required and must be a number' }
+    //     })
+    //     return
+    // }
 
-    // sanitize / validate room counts
-    const rooms = Number(NoOfRooms) || 1
-    if (rooms < 1 || !Number.isFinite(rooms)) {
-        res.status(400).json({
-            data: null,
-            Status: { Code: 400, Message: 'NoOfRooms must be a positive integer' }
-        })
-        return
-    }
+    // // sanitize / validate room counts
+    // const rooms = Number(NoOfRooms) || 1
+    // if (rooms < 1 || !Number.isFinite(rooms)) {
+    //     res.status(400).json({
+    //         data: null,
+    //         Status: { Code: 400, Message: 'NoOfRooms must be a positive integer' }
+    //     })
+    //     return
+    // }
 
-    // compute nights if not provided or invalid
-    const computedNights = co.diff(ci, 'day')
-    if (providedNights === undefined || providedNights === null || isNaN(Number(providedNights)) || Number(providedNights) <= 0) {
-        providedNights = computedNights
-    } else if (Number(providedNights) !== computedNights) {
-        // normalize to computed nights to avoid inconsistent requests
-        providedNights = computedNights
-    }
+    // // compute nights if not provided or invalid
+    // const computedNights = co.diff(ci, 'day')
+    // if (providedNights === undefined || providedNights === null || isNaN(Number(providedNights)) || Number(providedNights) <= 0) {
+    //     providedNights = computedNights
+    // } else if (Number(providedNights) !== computedNights) {
+    //     // normalize to computed nights to avoid inconsistent requests
+    //     providedNights = computedNights
+    // }
 
-    // validate RoomGuests array if present
-    if (RoomGuests !== undefined) {
-        if (!Array.isArray(RoomGuests)) {
-            res.status(400).json({ data: null, Status: { Code: 400, Message: 'RoomGuests must be an array when provided' } })
-            return
-        }
-        if (RoomGuests.length !== rooms) {
-            res.status(400).json({ data: null, Status: { Code: 400, Message: 'RoomGuests length must equal NoOfRooms' } })
-            return
-        }
-        for (let i = 0; i < RoomGuests.length; i++) {
-            const g = RoomGuests[i]
-            const adult = Number(g?.Adult) || 0
-            const child = Number(g?.Child) || 0
-            if (adult < 1) {
-                res.status(400).json({ data: null, Status: { Code: 400, Message: `RoomGuests[${i}].Adult must be at least 1` } })
-                return
-            }
-            if (!Array.isArray(g.ChildAge)) {
-                res.status(400).json({ data: null, Status: { Code: 400, Message: `RoomGuests[${i}].ChildAge must be an array` } })
-                return
-            }
-            if (g.ChildAge.length !== child) {
-                res.status(400).json({ data: null, Status: { Code: 400, Message: `RoomGuests[${i}].ChildAge length must equal Child count` } })
-                return
-            }
-        }
-    }
+    // // validate RoomGuests array if present
+    // if (RoomGuests !== undefined) {
+    //     if (!Array.isArray(RoomGuests)) {
+    //         res.status(400).json({ data: null, Status: { Code: 400, Message: 'RoomGuests must be an array when provided' } })
+    //         return
+    //     }
+    //     if (RoomGuests.length !== rooms) {
+    //         res.status(400).json({ data: null, Status: { Code: 400, Message: 'RoomGuests length must equal NoOfRooms' } })
+    //         return
+    //     }
+    //     for (let i = 0; i < RoomGuests.length; i++) {
+    //         const g = RoomGuests[i]
+    //         const adult = Number(g?.Adult) || 0
+    //         const child = Number(g?.Child) || 0
+    //         if (adult < 1) {
+    //             res.status(400).json({ data: null, Status: { Code: 400, Message: `RoomGuests[${i}].Adult must be at least 1` } })
+    //             return
+    //         }
+    //         if (!Array.isArray(g.ChildAge)) {
+    //             res.status(400).json({ data: null, Status: { Code: 400, Message: `RoomGuests[${i}].ChildAge must be an array` } })
+    //             return
+    //         }
+    //         if (g.ChildAge.length !== child) {
+    //             res.status(400).json({ data: null, Status: { Code: 400, Message: `RoomGuests[${i}].ChildAge length must equal Child count` } })
+    //             return
+    //         }
+    //     }
+    // }
 
-    // validate optional fields
-    if (ResultCount !== undefined && (isNaN(Number(ResultCount)) || Number(ResultCount) < 0)) {
-        res.status(400).json({ data: null, Status: { Code: 400, Message: 'ResultCount must be a non-negative number when provided' } })
-        return
-    }
-    if (GuestNationality !== undefined && typeof GuestNationality !== 'string') {
-        res.status(400).json({ data: null, Status: { Code: 400, Message: 'GuestNationality must be a string when provided' } })
-        return
-    }
-    if (CountryCode !== undefined && typeof CountryCode !== 'string') {
-        res.status(400).json({ data: null, Status: { Code: 400, Message: 'CountryCode must be a string when provided' } })
-        return
-    }
+    // // validate optional fields
+    // if (ResultCount !== undefined && (isNaN(Number(ResultCount)) || Number(ResultCount) < 0)) {
+    //     res.status(400).json({ data: null, Status: { Code: 400, Message: 'ResultCount must be a non-negative number when provided' } })
+    //     return
+    // }
+    // if (GuestNationality !== undefined && typeof GuestNationality !== 'string') {
+    //     res.status(400).json({ data: null, Status: { Code: 400, Message: 'GuestNationality must be a string when provided' } })
+    //     return
+    // }
+    // if (CountryCode !== undefined && typeof CountryCode !== 'string') {
+    //     res.status(400).json({ data: null, Status: { Code: 400, Message: 'CountryCode must be a string when provided' } })
+    //     return
+    // }
 
     const data = {
         UserIp: "122.161.64.143",
@@ -178,7 +178,11 @@ export const searchHotel = async (
         CountryCode: CountryCode
     }
 
+    console.log('Final Search Hotel Data:', data)
+
     const response = await bdsdApi<typeof data, HotelListResponse>(apiEndPoints.search, data)
+
+    console.log('BDSD Search Hotel Response:', response)
 
     if(response.Error.ErrorMessage !== '') {
         res.status(500).json({

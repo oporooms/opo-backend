@@ -251,108 +251,112 @@ export const getAllHotels = async (req: Request<{}, any, any, SearchHotel>, res:
     }
 };
 
-export const searchHotelsForBooking = async (req: Request<{}, any, any, SearchHotel>, res: Response<DefaultResponseBody<{
+export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>, res: Response<DefaultResponseBody<{
     hotels: IHotel[],
     bdsdHotels: HotelListResponse
 }>>): Promise<void> => {
-    try {
-        const { userId, name, nameNot, checkIn, checkOut, cityId, rooms, adults, child, childAge, customAddress, desc, city, locality, lat, lng, placeId, regularPrice, salePrice, minPrice, maxPrice, minRating, maxRating, amenities, sort, skip = '0', limit = '10', nextId } = req.query;
-        const filters: Record<string, unknown> = {};
+    const { userId, name, nameNot, checkIn, checkOut, cityId, rooms, adults, child, childAge, customAddress, desc, city, locality, lat, lng, placeId, regularPrice, salePrice, minPrice, maxPrice, minRating, maxRating, amenities, sort, skip = '0', limit = '10', nextId } = req.body;
 
-        if (name) filters.name = new RegExp(name, "i");
-        if (nameNot) filters.name = { $not: new RegExp(nameNot, 'i') };
-        if (customAddress) filters.customAddress = new RegExp(customAddress, "i");
-        if (desc) filters.desc = new RegExp(desc, "i");
-        if (city) filters["address.City"] = new RegExp(city, "i");
-        if (locality) filters["address.Locality"] = new RegExp(locality, "i");
-        if (lat) filters["address.lat"] = parseFloat(lat);
-        if (lng) filters["address.lng"] = parseFloat(lng);
-        if (placeId) filters["address.placeId"] = placeId;
-        if (regularPrice) filters["rooms.regularPrice"] = parseFloat(regularPrice);
-        if (salePrice) filters["rooms.salePrice"] = parseFloat(salePrice);
-        if (amenities) filters["amenities"] = { $all: amenities.split(',').map(item => item.trim()) };
+    const filters: Record<string, unknown> = {};
+    const sortFilter: Record<string, 1 | -1> = {};
 
-        if (minPrice) {
-            filters['rooms.0.price'] = { $gte: parseFloat(minPrice), $lte: parseFloat(maxPrice) };
-        } else if (minPrice) {
-            filters['rooms.0.price'] = { $gte: parseFloat(minPrice) };
-        }
+    if (name) filters.name = new RegExp(name, "i");
+    if (nameNot) filters.name = { $not: new RegExp(nameNot, 'i') };
+    if (customAddress) filters.customAddress = new RegExp(customAddress, "i");
+    if (desc) filters.desc = new RegExp(desc, "i");
+    if (city) filters["address.City"] = new RegExp(city, "i");
+    if (locality) filters["address.Locality"] = new RegExp(locality, "i");
+    if (lat) filters["address.lat"] = parseFloat(lat);
+    if (lng) filters["address.lng"] = parseFloat(lng);
+    if (placeId) filters["address.placeId"] = placeId;
+    if (regularPrice) filters["rooms.regularPrice"] = parseFloat(regularPrice);
+    if (salePrice) filters["rooms.salePrice"] = parseFloat(salePrice);
+    if (amenities) filters["amenities"] = { $all: amenities.split(',').map(item => item.trim()) };
 
-        if (minRating && maxRating) {
-            filters['$expr'] = {
-                $and: [{ $gte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(minRating)] }, { $lte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(maxRating)] }]
-            };
-        } else if (minRating) {
-            filters['$expr'] = {
-                $gte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(minRating)]
-            };
-        }
+    if (minPrice && maxPrice) {
+        filters['rooms.0.price'] = { $gte: parseFloat(minPrice), $lte: parseFloat(maxPrice) };
+    } else if (minPrice) {
+        filters['rooms.0.price'] = { $gte: parseFloat(minPrice) };
+    }
 
-        if (sort === 'price_highest') {
-            filters['rooms.0.price'] = -1;
-        } else if (sort === 'price_lowest') {
-            filters['rooms.0.price'] = 1;
-        } else {
-            filters['averageRating'] = -1;
-            filters['_id'] = -1;
-        }
+    if (minRating && maxRating) {
+        filters['$expr'] = {
+            $and: [{ $gte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(minRating)] }, { $lte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(maxRating)] }]
+        };
+    } else if (minRating) {
+        filters['$expr'] = {
+            $gte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(minRating)]
+        };
+    }
 
-        let pipeline: PipelineStage[] = [];
+    if (sort === 'price_highest') {
+        sortFilter['rooms.0.price'] = -1;
+    } else if (sort === 'price_lowest') {
+        sortFilter['rooms.0.price'] = 1;
+    } else {
+        sortFilter['_id'] = -1;
+    }
 
-        if (lat && lng) {
-            pipeline.push({
-                $geoNear: {
-                    near: { type: 'Point', coordinates: [Number(lng) || 0, Number(lat) || 0] },
-                    distanceField: 'dist.calculated',
-                    includeLocs: 'location',
-                    spherical: true,
-                    minDistance: 0,
-                    maxDistance: 10000
-                }
-            });
-        }
+    let pipeline: PipelineStage[] = [];
 
-        if (userId) {
-            pipeline.push({
-                $lookup: {
-                    from: 'Wishlist',
-                    let: { hotelId: '$_id' },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $and: [
-                                        { $eq: ['$type', 'Hotel'] },
-                                        { $eq: ['$ifHotelWishListed._id', '$$hotelId'] },
-                                        { $eq: ['$userId', new Types.ObjectId(userId)] }
-                                    ]
-                                }
+    if (lat && lng) {
+        pipeline.push({
+            $geoNear: {
+                near: { type: 'Point', coordinates: [Number(lng) || 0, Number(lat) || 0] },
+                distanceField: 'dist.calculated',
+                includeLocs: 'location',
+                spherical: true,
+                minDistance: 0,
+                maxDistance: 10000
+            }
+        });
+    }
+
+    if (userId) {
+        pipeline.push({
+            $lookup: {
+                from: 'Wishlist',
+                let: { hotelId: '$_id' },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ['$type', 'Hotel'] },
+                                    { $eq: ['$ifHotelWishListed._id', '$$hotelId'] },
+                                    { $eq: ['$userId', new Types.ObjectId(userId)] }
+                                ]
                             }
                         }
-                    ],
-                    as: 'Wishlisted'
-                }
-            });
-        }
+                    }
+                ],
+                as: 'Wishlisted'
+            }
+        });
+    }
 
-        if (nextId) {
-            pipeline.push({ $match: { _id: { $gt: new Types.ObjectId(nextId) } } });
-        }
+    if (nextId) {
+        pipeline.push({ $match: { _id: { $gt: new Types.ObjectId(nextId) } } });
+    }
 
-        pipeline.push(
-            { $lookup: { from: 'Users', localField: 'hotelOwnerId', foreignField: '_id', as: 'hotelOwner' } },
-            { $lookup: { from: 'Rooms', localField: '_id', foreignField: 'hotelId', as: 'Rooms' } },
-            { $lookup: { from: 'Ratings', localField: '_id', foreignField: 'hotelId', as: 'Ratings' } },
-            { $lookup: { from: 'Bookings', localField: '_id', foreignField: 'bookingDetails.ifHotelBooked.hotelId', as: 'Bookings' } },
-            { $unwind: { path: "$hotelOwner", preserveNullAndEmptyArrays: true } },
-            { $match: { status: HotelStatus.APPROVED, ...filters } },
-            { $skip: parseInt(skip) },
-            { $limit: Math.min(parseInt(limit), 100) }
-        );
+    pipeline.push(
+        { $lookup: { from: 'Users', localField: 'hotelOwnerId', foreignField: '_id', as: 'hotelOwner' } },
+        { $lookup: { from: 'Rooms', localField: '_id', foreignField: 'hotelId', as: 'Rooms' } },
+        { $lookup: { from: 'Ratings', localField: '_id', foreignField: 'hotelId', as: 'Ratings' } },
+        { $lookup: { from: 'Bookings', localField: '_id', foreignField: 'bookingDetails.ifHotelBooked.hotelId', as: 'Bookings' } },
+        { $unwind: { path: "$hotelOwner", preserveNullAndEmptyArrays: true } },
+        { $match: { status: HotelStatus.APPROVED, ...filters } },
+        { $skip: parseInt(skip) },
+        { $limit: Math.min(parseInt(limit), 100) },
+        { $sort: sortFilter }
+    );
 
+    console.log({ filters, pipelineLength: pipeline.length })
+
+    try {
         const hotels = await Hotel.aggregate(pipeline) as IHotel[];
 
-        const bdsdHotels = await axios.post<HotelListResponse>(`${process.env.SERVER_URL}/api/v1/bdsdHotels/searchHotel`, {
+        const bdsdHotels = await axios.post<DefaultResponseBody<HotelListResponse>>(`http://localhost:8000/api/v1/bdsdHotel/searchHotel`, {
             "CheckInDate": dayjs(checkIn).format('YYYY-MM-DD'),
             "CheckOutDate": dayjs(checkOut).format('YYYY-MM-DD'),
             "NoOfNights": dayjs(checkOut).diff(dayjs(checkIn), 'days'),
@@ -376,11 +380,12 @@ export const searchHotelsForBooking = async (req: Request<{}, any, any, SearchHo
         res.status(200).json({
             data: {
                 hotels,
-                bdsdHotels: bdsdHotels.data
-            }, Status: { Code: 0, Message: '' }
+                bdsdHotels: bdsdHotels.data.data as HotelListResponse
+            }, Status: { Code: 200, Message: 'Data fetched successfully' }
         });
     } catch (error) {
-        res.status(500).json({ data: null, Status: { Code: 1, Message: (error as Error).message } });
+        console.log({ error })
+        res.status(500).json({ data: null, Status: { Code: 500, Message: (error as Error).message } });
     }
 };
 
