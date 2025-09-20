@@ -1,3 +1,4 @@
+import { removeNoSqlInjection } from "@/functions";
 import { getNextId } from "@/functions/mongoFunc";
 import Hotel from "@/schemas/Hotel/Hotel";
 import Room from "@/schemas/Room";
@@ -251,9 +252,26 @@ export const getAllHotels = async (req: Request<{}, any, any, SearchHotel>, res:
     }
 };
 
+export const getSearchedSingleHotel = async (req: Request<{ slug: string }>, res: Response<DefaultResponseBody<IHotel>>): Promise<void> => {
+    try {
+        const { slug } = req.params;
+        const nameSlug = slug.replace(/-OPO\d+$/i, '').replace(/-/g, ' ').trim().toLowerCase();
+
+        const hotel = await Hotel.findOne({ name: new RegExp(removeNoSqlInjection(nameSlug), 'i'), status: HotelStatus.APPROVED }).lean();
+
+        if (!hotel) {
+            res.status(404).json({ data: null, Status: { Code: 404, Message: 'Hotel not found' } });
+            return;
+        }
+        res.status(200).json({ data: hotel as IHotel, Status: { Code: 200, Message: '' } });
+    } catch (error) {
+        res.status(500).json({ data: null, Status: { Code: 1, Message: (error as Error).message } });
+    }
+}
+
 export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>, res: Response<DefaultResponseBody<{
     hotels: IHotel[],
-    bdsdHotels: HotelListResponse
+    // bdsdHotels: HotelListResponse
 }>>): Promise<void> => {
     const { userId, name, nameNot, checkIn, checkOut, cityId, rooms, adults, child, childAge, customAddress, desc, city, locality, lat, lng, placeId, regularPrice, salePrice, minPrice, maxPrice, minRating, maxRating, amenities, sort, skip = '0', limit = '10', nextId } = req.body;
 
@@ -264,7 +282,15 @@ export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>,
     if (nameNot) filters.name = { $not: new RegExp(nameNot, 'i') };
     if (customAddress) filters.customAddress = new RegExp(customAddress, "i");
     if (desc) filters.desc = new RegExp(desc, "i");
-    if (city) filters["address.City"] = new RegExp(city, "i");
+    if (city) {
+        const cityTerm = String(city).trim();
+        const lettersOnlyCity = cityTerm.replace(/[^a-zA-Z]/g, '');
+        const escapedCity = cityTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const first3 = lettersOnlyCity.slice(0, 3);
+        const escapedFirst3 = first3.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        filters['customAddress'] = new RegExp(escapedFirst3, 'i');
+    }
     if (locality) filters["address.Locality"] = new RegExp(locality, "i");
     if (lat) filters["address.lat"] = parseFloat(lat);
     if (lng) filters["address.lng"] = parseFloat(lng);
@@ -279,15 +305,15 @@ export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>,
         filters['rooms.0.price'] = { $gte: parseFloat(minPrice) };
     }
 
-    if (minRating && maxRating) {
-        filters['$expr'] = {
-            $and: [{ $gte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(minRating)] }, { $lte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(maxRating)] }]
-        };
-    } else if (minRating) {
-        filters['$expr'] = {
-            $gte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(minRating)]
-        };
-    }
+    // if (minRating && maxRating) {
+    //     filters['$expr'] = {
+    //         $and: [{ $gte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(minRating)] }, { $lte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(maxRating)] }]
+    //     };
+    // } else if (minRating) {
+    //     filters['$expr'] = {
+    //         $gte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(minRating)]
+    //     };
+    // }
 
     if (sort === 'price_highest') {
         sortFilter['rooms.0.price'] = -1;
@@ -351,36 +377,34 @@ export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>,
         { $sort: sortFilter }
     );
 
-    console.log({ filters, pipelineLength: pipeline.length })
-
     try {
         const hotels = await Hotel.aggregate(pipeline) as IHotel[];
 
-        const bdsdHotels = await axios.post<DefaultResponseBody<HotelListResponse>>(`http://localhost:8000/api/v1/bdsdHotel/searchHotel`, {
-            "CheckInDate": dayjs(checkIn).format('YYYY-MM-DD'),
-            "CheckOutDate": dayjs(checkOut).format('YYYY-MM-DD'),
-            "NoOfNights": dayjs(checkOut).diff(dayjs(checkIn), 'days'),
-            "CountryCode": "IN",
-            "DestinationCityId": cityId,
-            "ResultCount": null,
-            "GuestNationality": "IN",
-            "NoOfRooms": rooms,
-            "RoomGuests": [
-                {
-                    "Adult": adults,
-                    "Child": child,
-                    "ChildAge": childAge
-                }
-            ],
-            "MaxRating": maxRating,
-            "MinRating": minRating,
-            "UserIp": "49.36.217.215"
-        })
+        // const bdsdHotels = await axios.post<DefaultResponseBody<HotelListResponse>>(`http://localhost:8000/api/v1/bdsdHotel/searchHotel`, {
+        //     "CheckInDate": dayjs(checkIn).format('YYYY-MM-DD'),
+        //     "CheckOutDate": dayjs(checkOut).format('YYYY-MM-DD'),
+        //     "NoOfNights": dayjs(checkOut).diff(dayjs(checkIn), 'days'),
+        //     "CountryCode": "IN",
+        //     "DestinationCityId": cityId,
+        //     "ResultCount": null,
+        //     "GuestNationality": "IN",
+        //     "NoOfRooms": rooms,
+        //     "RoomGuests": [
+        //         {
+        //             "Adult": adults,
+        //             "Child": child,
+        //             "ChildAge": childAge
+        //         }
+        //     ],
+        //     "MaxRating": maxRating,
+        //     "MinRating": minRating,
+        //     "UserIp": "49.36.217.215"
+        // })
 
         res.status(200).json({
             data: {
                 hotels,
-                bdsdHotels: bdsdHotels.data.data as HotelListResponse
+                // bdsdHotels: null //bdsdHotels.data.data as HotelListResponse
             }, Status: { Code: 200, Message: 'Data fetched successfully' }
         });
     } catch (error) {

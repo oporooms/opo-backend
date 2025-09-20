@@ -18,7 +18,7 @@ import { Bookings, BookingStatus, PaymentMode } from "@/types/booking";
 import axios from "axios";
 import { removeNoSqlInjection } from "@/functions";
 
-const isDevelopment = process.env.NODE_ENV == 'development'
+const isDevelopment = process.env.NODE_ENV !== 'development'
 
 const apiEndPoints = {
     search: isDevelopment ? 'https://www.stagingapi.bdsd.technology/api/airservice/rest/search' : 'https://api.bdsd.technology/api/airservice/rest/search',
@@ -134,11 +134,6 @@ export const searchFlight = async (
     req: Request<FlightSearchProps>,
     res: Response<DefaultResponseBody<FlightData>>
 ) => {
-    console.log({
-        params: req.params,
-        query: req.query,
-        body: req.body
-    })
     const searchParams = req.query;
 
     switch (true) {

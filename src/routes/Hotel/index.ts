@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createHotel, createHotelWithRooms, deleteHotel, deleteMultipleHotels, getAllHotels, searchHotelsForBooking, updateHotel } from '@/controllers/hotels';
+import { createHotel, createHotelWithRooms, deleteHotel, deleteMultipleHotels, getAllHotels, getSearchedSingleHotel, searchHotelsForBooking, updateHotel } from '@/controllers/hotels';
 import { searchCityForHotel } from '@/controllers/search';
 
 const hotelRouter = Router();
@@ -12,6 +12,7 @@ hotelRouter.post('/delete-many', deleteMultipleHotels) // Delete many hotels wit
 
 // GET routes
 hotelRouter.get('/', getAllHotels)
+hotelRouter.get('/:slug', getSearchedSingleHotel)
 hotelRouter.post('/searchHotelsForBooking', searchHotelsForBooking)
 
 // PUT routes
