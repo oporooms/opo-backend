@@ -1,4 +1,4 @@
-import { cancelFlightBooking, getBookingDetails, getConfirmationFare, getFareRules, getFlightAirportList, getSeatMap, searchFlight } from "@/controllers/flight";
+import { cancelFlightBooking, getBookingDetails, getConfirmationFare, getFareRules, getFlightAirportList, getSeatConfirmationFare, getSeatMap, searchFlight } from "@/controllers/flight";
 import { Router } from "express";
 
 const flightRouter = Router();
@@ -7,6 +7,7 @@ const flightRouter = Router();
 flightRouter.get('/searchAirport', getFlightAirportList)
 flightRouter.get('/searchFlight', searchFlight)
 flightRouter.get('/getFareRules', getFareRules)
+flightRouter.get('/getSeatConfirmationFare', getSeatConfirmationFare)
 flightRouter.get('/getConfirmationFare', getConfirmationFare)
 flightRouter.get('/getSeatMap', getSeatMap)
 flightRouter.get('/getBookingDetails', getBookingDetails)

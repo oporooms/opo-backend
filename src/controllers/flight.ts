@@ -499,6 +499,145 @@ export const getSeatMap = async (
     }
 };
 
+export const getSeatConfirmationFare = async (
+    req: Request<{
+        fareId: string;
+        fareReturnId?: string;
+        SearchTokenId: string;
+    }>,
+    res: Response<DefaultResponseBody<{
+        fareConfirmation: FareConfirmation;
+        seatMap: FlightSeatMap;
+        fareConfirmationReturn?: FareConfirmation | undefined | null;
+        seatMapReturn?: FlightSeatMap | undefined | null;
+    } | null>>
+) => {
+    const searchParams = req.query;
+
+    console.log("Received params:", searchParams);
+
+    switch (true) {
+        case !searchParams.fareId:
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "Please provide fareId",
+                }
+            });
+            return;
+        case !searchParams.SearchTokenId:
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "Please provide SearchTokenId",
+                }
+            });
+            return;
+        default:
+            break;
+    }
+
+    const data = {
+        "UserIp": "122.161.66.42",
+        "ResultIndex": searchParams.fareId,
+        "SearchTokenId": searchParams.SearchTokenId
+    };
+
+    console.log("Request data prepared:", data);
+
+    const dataReturn = {
+        "UserIp": "122.161.66.42",
+        "ResultIndex": searchParams.fareReturnId,
+        "SearchTokenId": searchParams.SearchTokenId
+    }
+
+    console.log("Return data prepared:", dataReturn);
+
+    try {
+        const fareConfirmationResponse = await bdsdApi<typeof data, FareConfirmation>(apiEndPoints.fareConfirmation, data);
+
+        console.log("Fare Confirmation Response:", fareConfirmationResponse);
+
+        if (fareConfirmationResponse.Error.ErrorMessage.trim() !== '') {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: fareConfirmationResponse.Error.ErrorCode || 400,
+                    Message: fareConfirmationResponse.Error.ErrorMessage
+                }
+            });
+            return;
+        }
+        const seatMapResponse = await bdsdApi<typeof data, FlightSeatMap>(apiEndPoints.seatmap, data);
+
+        console.log("Seat Map Response:", seatMapResponse);
+
+        if (seatMapResponse.Error.ErrorMessage.trim() !== '') {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: seatMapResponse.Error.ErrorCode || 400,
+                    Message: seatMapResponse.Error.ErrorMessage
+                }
+            });
+            return;
+        }
+
+        const fareConfirmationReturnResponse = searchParams.fareReturnId ? await bdsdApi<typeof dataReturn, FareConfirmation>(apiEndPoints.fareConfirmation, dataReturn) : null;
+
+        console.log("Fare Confirmation Return Response:", fareConfirmationReturnResponse);
+
+        if (searchParams.fareReturnId && fareConfirmationReturnResponse && fareConfirmationReturnResponse.Error.ErrorMessage.trim() !== '') {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: fareConfirmationReturnResponse.Error.ErrorCode || 400,
+                    Message: fareConfirmationReturnResponse.Error.ErrorMessage
+                }
+            });
+        }
+
+        const seatMapReturnResponse = searchParams.fareReturnId ? await bdsdApi<typeof dataReturn, FlightSeatMap>(apiEndPoints.seatmap, dataReturn) : null;
+
+        console.log("Seat Map Return Response:", seatMapReturnResponse);
+
+        if (searchParams.fareReturnId && seatMapReturnResponse && seatMapReturnResponse.Error.ErrorMessage.trim() !== '') {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: seatMapReturnResponse.Error.ErrorCode || 400,
+                    Message: seatMapReturnResponse.Error.ErrorMessage
+                }
+            });
+        }
+
+        res.status(200).json({
+            data: {
+                fareConfirmation: fareConfirmationResponse,
+                seatMap: seatMapResponse,
+                fareConfirmationReturn: fareConfirmationReturnResponse,
+                seatMapReturn: seatMapReturnResponse
+            },
+            Status: {
+                Code: 200,
+                Message: "Success"
+            }
+        });
+
+    } catch (error) {
+        console.log("Error occurred:", error);
+        res.status(500).json({
+            data: null,
+            Status: {
+                Code: 500,
+                Message: "Internal Server Error"
+            }
+        });
+    }
+};
+
 export const bookFlight = async (
     req: Request<{}, {}, {
         booking_Id?: string;

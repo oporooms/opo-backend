@@ -15,8 +15,9 @@ import Booking from "@/schemas/Booking";
 import { Types } from "mongoose";
 import { Bookings, BookingStatus, PaymentMode } from "@/types/oldcode/Booking";
 import axios from "axios";
+import { removeNoSqlInjection } from "@/functions";
 
-const isDevelopment = process.env.NODE_ENV == 'development'
+const isDevelopment = process.env.NODE_ENV !== 'development'
 
 const apiEndPoints = {
     search: isDevelopment ? 'https://www.stagingapi.bdsd.technology/api/busservice/rest/search' : 'https://api.bdsd.technology/api/busservice/rest/search',
@@ -29,24 +30,58 @@ const apiEndPoints = {
 }
 
 export const getBusList = async (
-    req: Request<{ id?: number | string; city_id?: number | string; city_name?: string; priority?: number | string | null; skip?: number }>,
+    req: Request<any, any, { city_name?: string; skip?: number }>,
     res: Response<DefaultResponseBody<{ list: BusListType[]; count: number }>>
 ) => {
-    const { id, city_id, city_name, priority, skip } = req.query;
+    const { city_name = removeNoSqlInjection(req.query.city_name as string), skip=0 } = req.query
     const query: any = {};
 
-    if (id) query.id = id;
-    if (city_id) query.city_id = city_id;
     if (city_name) query.city_name = new RegExp(String(city_name).trim(), 'i');
-    if (priority) query.priority = priority;
+
+    console.log({ city_name });
+
+    if (city_name) {
+        const trimmed = String(city_name).trim();
+        if (trimmed.length < 3) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "Minimum 3 letters required for city_name"
+                }
+            });
+
+            return
+        }
+        query.city_name = new RegExp(trimmed, 'i');
+    }
 
     try {
-        const busList = await BusList.find(query)
-            .skip(Number(skip) * 10)
-            .limit(10)
-            .lean();
+        const q = String(city_name).trim();
+        const esc = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const prefixSlice = q.length >= 3 ? esc.slice(0, 3) : esc;
+        const fullRegex = { $regex: esc, $options: "i" };
+        const prefixRegex = { $regex: "^" + prefixSlice, $options: "i" };
+        
+
+        const orConditions: any[] = [
+            // full (anywhere) matches
+            { city_name: fullRegex },
+
+            // prefix matches (first 3 letters)
+            { city_name: prefixRegex },
+        ];
+
+        const busList = await BusList.aggregate([
+            { $match: { $or: orConditions } },
+            { $skip: Number(skip) * 10 },
+            { $limit: 10 },
+        ]);
+
+        console.log({ busList });
 
         const count = await BusList.countDocuments(query);
+
         res.status(200).json({
             data: {
                 list: busList,
@@ -58,6 +93,7 @@ export const getBusList = async (
             }
         })
     } catch (error) {
+        console.log("Error in getBusList:", error);
         res.status(500).json({
             data: null,
             Status: {
@@ -73,6 +109,7 @@ export const searchBuses = async (
     res: Response<DefaultResponseBody<BusResponse>>
 ) => {
     const { OriginId, DestinationId, DateOfJourney } = req.query;
+    console.log({ OriginId, DestinationId, DateOfJourney });
 
     if (!OriginId) {
         res.status(400).json({
@@ -113,6 +150,7 @@ export const searchBuses = async (
 
     try {
         const response = await bdsdApi<typeof params, BusResponse>(apiEndPoints.search, params);
+        console.log({ response });
 
         if (response.Error.ErrorMessage.trim() == '') {
             res.status(200).json({
@@ -126,8 +164,8 @@ export const searchBuses = async (
             res.status(400).json({
                 data: null,
                 Status: {
-                    Code: 400,
-                    Message: "Bad Request"
+                    Code: response.Error.ErrorCode || 400,
+                    Message: response.Error.ErrorMessage || "Bad Request"
                 }
             });
         }
@@ -241,6 +279,8 @@ export const getBoardingPoints = async (
 
     try {
         const response = await bdsdApi<typeof params, BoardingPointResponse>(apiEndPoints.boardingPoints, params);
+
+        console.log({ boardingResponse: response });
 
         if (response.Error.ErrorMessage.trim() === '') {
             res.status(200).json({
@@ -436,7 +476,7 @@ export const bookBusSeat = async (
         if (response.Error.ErrorMessage.trim() === '' && response.Error.ErrorCode === 0) {
 
             const getBookingDetailsResponse = await axios.get<DefaultResponseBody<IGetBookingDetails>>(`${process.env.SERVERURL}/api/v1/bus/getBookingDetails?SearchTokenId=${response.SearchTokenId}&BookingId=${response.Result.BookingID}`);
-            
+
 
             if (getBookingDetailsResponse.data.Status.Message.trim() === '' && booking?.payment.mode !== PaymentMode.onlinePay) {
                 await Booking.updateOne(
