@@ -53,4 +53,6 @@ export interface IUser {
     panNo?: string;
     createdAt?: Date;
     updatedAt?: Date;
+    token?: string;
+    lastLogin?: Date | null;
 }

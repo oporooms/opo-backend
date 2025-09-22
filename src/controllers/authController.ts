@@ -15,6 +15,8 @@ import {
 import { DefaultResponseBody } from "@/types/default";
 import dotenv from "dotenv";
 import { UserRole } from "@/types/user";
+import { serialize } from 'cookie';
+
 if (process.env.NODE_ENV === "production") {
   dotenv.config({ path: ".env" });
 } else {
@@ -299,9 +301,17 @@ export const register = async (
 
 export const login = async (
   req: Request<{}, {}, { phone: string | number, code: number }>,
-  res: Response<DefaultResponseBody<string>>
+  res: Response<DefaultResponseBody<{
+    token: string;
+    id: string;
+    fullname: string;
+    email: string;
+    phone: string;
+  } | string>>
 ) => {
   const { phone, code } = req.body
+
+  console.log(req.body)
 
   const isValidPhone = formatIndianPhoneNumber(phone);
 
@@ -316,14 +326,22 @@ export const login = async (
     return;
   }
 
+  console.log("running..1....")
+
   const isValid = await verifyOtp(isValidPhone.cleanedPhone, code);
+
+  console.log({ isValid })
 
   if (isValid.Status.Code == 400) {
     res.status(400).json(isValid);
     return;
   }
 
+  console.log("running..2....")
+
   const user = await User.findOne({ phone: isValidPhone.cleanedPhone }, { _id: 1 }).lean();
+
+  console.log({ user });
 
   if (!user) {
     res.status(404).json({
@@ -360,11 +378,30 @@ export const login = async (
     return;
   }
 
+  await User.updateOne({ _id: user._id }, {
+    token: token,
+    lastLogin: new Date()
+  }).lean();
+
+  const cookieOptions = {
+    httpOnly: true, // Prevents client-side JavaScript access
+    secure: process.env.NODE_ENV === 'production', // Use secure in production
+    sameSite: 'strict' as const, // Or 'Strict' for stricter security
+    maxAge: 60 * 60 * 24 * 7, // 1 week
+  };
+
+  res.cookie('session_token', token, cookieOptions);
+
   res
     .status(200)
-    .header("Authorization", `Bearer ${token}`)
     .json({
-      data: token,
+      data: {
+        token,
+        id: user._id.toString(),
+        fullname: user.fullname || "",
+        email: user.email || "",
+        phone: user.phone || ""
+      },
       Status: {
         Code: 200,
         Message: "Login successful"

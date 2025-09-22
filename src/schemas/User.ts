@@ -67,6 +67,8 @@ const UserSchema = new Schema<IUser>({
   panNo: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
+  token: { type: String, default: "" },
+  lastLogin: { type: Date, default: null },
 });
 
 UserSchema.pre('validate', function (next) {

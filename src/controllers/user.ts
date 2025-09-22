@@ -5,11 +5,14 @@ import { Request, Response } from "express";
 import { Types } from "mongoose";
 
 export const getUser = async (
-    req: Request<{}, {}, Partial<IUser>>,
+    req: Request<{}, {}, {}, Partial<IUser>>,
     res: Response<DefaultResponseBody<IUser>>
 ) => {
-    const { phone, email, status, fullname } = req.body;
+    const { phone, email, status, fullname } = req.query;
     const accessById = req.user?.userId;
+
+
+    console.log("Accessed by ID:", accessById);
 
     const filters: Record<string, unknown> = {};
 
@@ -32,7 +35,8 @@ export const getUser = async (
         return
     }
 
-    const user = await User.findOne(filters);
+    const query = Object.keys(filters).length ? filters : { _id: accessBy._id };
+    const user = await User.findOne(query);
 
     if (!user) {
         res.status(404).json({

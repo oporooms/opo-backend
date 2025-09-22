@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import jsonwebtoken from "jsonwebtoken";
-
+import dotenv from "dotenv";
+dotenv.config({ path: ".env" });
 // JWT auth middleware (register before mainRoutes)
 const JWT_SECRET = process.env.JWT_SECRET?.trim();
 const JWT_ISSUER = process.env.JWT_ISSUER?.trim();
