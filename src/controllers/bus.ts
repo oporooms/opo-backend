@@ -17,7 +17,7 @@ import { Bookings, BookingStatus, PaymentMode } from "@/types/oldcode/Booking";
 import axios from "axios";
 import { removeNoSqlInjection } from "@/functions";
 
-const isDevelopment = process.env.NODE_ENV !== 'development'
+const isDevelopment = process.env.NODE_ENV == 'development'
 
 const apiEndPoints = {
     search: isDevelopment ? 'https://www.stagingapi.bdsd.technology/api/busservice/rest/search' : 'https://api.bdsd.technology/api/busservice/rest/search',
