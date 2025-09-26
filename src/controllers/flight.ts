@@ -14,7 +14,7 @@ import { Passengers } from "@/types/Flight/Booking";
 import { CancelBookingResponse } from "@/types/Flight/CancelBooking";
 import Booking from "@/schemas/Booking";
 import { Types } from "mongoose";
-import { Bookings, BookingStatus, PaymentMode } from "@/types/booking";
+import { Bookings, BookingStatus, PaymentMode } from "@/types/Bookings";
 import axios from "axios";
 import { removeNoSqlInjection } from "@/functions";
 

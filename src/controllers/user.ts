@@ -99,10 +99,23 @@ export const getUsers = async (
 }
 
 export const updateUsers = async (
-    req: Request<{}, {}, Partial<IUser> & { updatedBy: string }>,
+    req: Request<{}, {}, Partial<IUser>>,
     res: Response<DefaultResponseBody<IUser[]>>
 ) => {
-    const { _id, phone, email, status, updatedBy } = req.body;
+    const { _id, phone, email, status } = req.body;
+    const updatedBy = req.user?.userId;
+
+    if(!updatedBy) {
+        res.status(401).json({
+            data: null,
+            Status: {
+                Code: 401,
+                Message: "Unauthorized: 'updatedBy' information is missing."
+            }
+        });
+        return;
+    }
+
     const filters: Record<string, unknown> = {};
 
     if (_id) filters._id = new Types.ObjectId(_id as string);

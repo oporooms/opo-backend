@@ -1,8 +1,10 @@
-import { searchHotel } from '@/controllers/bdsdHotels';
+import { hotelInfo, hotelRoom, searchHotel } from '@/controllers/bdsdHotels';
 import { Router } from 'express';
 
 const bdsdHotelRouter = Router();
 
 bdsdHotelRouter.post('/searchHotel', searchHotel)
+bdsdHotelRouter.get('/hotelInfo', hotelInfo)
+bdsdHotelRouter.get('/hotelRoom', hotelRoom)
 
 export default bdsdHotelRouter;

@@ -15,7 +15,6 @@ import {
 import { DefaultResponseBody } from "@/types/default";
 import dotenv from "dotenv";
 import { UserRole } from "@/types/user";
-import { serialize } from 'cookie';
 
 if (process.env.NODE_ENV === "production") {
   dotenv.config({ path: ".env" });

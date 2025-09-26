@@ -225,26 +225,7 @@ export const getAllHotels = async (req: Request<{}, any, any, SearchHotel>, res:
 
         const hotels = await Hotel.aggregate(pipeline) as IHotel[];
 
-        // const bdsdHotels = await axios.post<HotelListResponse>(`${process.env.SERVER_URL}/api/v1/bdsdHotels/searchHotel`, {
-        //     "CheckInDate": dayjs(checkIn).format('YYYY-MM-DD'),
-        //     "CheckOutDate": dayjs(checkOut).format('YYYY-MM-DD'),
-        //     "NoOfNights": dayjs(checkOut).diff(dayjs(checkIn), 'days'),
-        //     "CountryCode": "IN",
-        //     "DestinationCityId": 144306,
-        //     "ResultCount": null,
-        //     "GuestNationality": "IN",
-        //     "NoOfRooms": 1,
-        //     "RoomGuests": [
-        //         {
-        //             "Adult": 2,
-        //             "Child": 0,
-        //             "ChildAge": []
-        //         }
-        //     ],
-        //     "MaxRating": 5,
-        //     "MinRating": 1,
-        //     "UserIp": "49.36.217.215"
-        // })
+      
 
         res.status(200).json({ data: hotels, Status: { Code: 0, Message: '' } });
     } catch (error) {
@@ -256,6 +237,8 @@ export const getSearchedSingleHotel = async (req: Request<{ slug: string }>, res
     try {
         const { slug } = req.params;
         const nameSlug = slug.replace(/-OPO\d+$/i, '').replace(/-/g, ' ').trim().toLowerCase();
+
+        console.log({ nameSlug });
 
         const hotel = await Hotel.findOne({ name: new RegExp(removeNoSqlInjection(nameSlug), 'i'), status: HotelStatus.APPROVED }).lean();
 
@@ -271,7 +254,7 @@ export const getSearchedSingleHotel = async (req: Request<{ slug: string }>, res
 
 export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>, res: Response<DefaultResponseBody<{
     hotels: IHotel[],
-    // bdsdHotels: HotelListResponse
+    bdsdHotels: HotelListResponse | null
 }>>): Promise<void> => {
     const { userId, name, nameNot, checkIn, checkOut, cityId, rooms, adults, child, childAge, customAddress, desc, city, locality, lat, lng, placeId, regularPrice, salePrice, minPrice, maxPrice, minRating, maxRating, amenities, sort, skip = '0', limit = '10', nextId } = req.body;
 
@@ -380,31 +363,31 @@ export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>,
     try {
         const hotels = await Hotel.aggregate(pipeline) as IHotel[];
 
-        // const bdsdHotels = await axios.post<DefaultResponseBody<HotelListResponse>>(`http://localhost:8000/api/v1/bdsdHotel/searchHotel`, {
-        //     "CheckInDate": dayjs(checkIn).format('YYYY-MM-DD'),
-        //     "CheckOutDate": dayjs(checkOut).format('YYYY-MM-DD'),
-        //     "NoOfNights": dayjs(checkOut).diff(dayjs(checkIn), 'days'),
-        //     "CountryCode": "IN",
-        //     "DestinationCityId": cityId,
-        //     "ResultCount": null,
-        //     "GuestNationality": "IN",
-        //     "NoOfRooms": rooms,
-        //     "RoomGuests": [
-        //         {
-        //             "Adult": adults,
-        //             "Child": child,
-        //             "ChildAge": childAge
-        //         }
-        //     ],
-        //     "MaxRating": maxRating,
-        //     "MinRating": minRating,
-        //     "UserIp": "49.36.217.215"
-        // })
+        const bdsdHotels = cityId ? await axios.post<DefaultResponseBody<HotelListResponse>>(`${process.env.SERVER_URL}/api/v1/bdsdHotel/searchHotel`, {
+            "CheckInDate": dayjs(checkIn).format('YYYY-MM-DD'),
+            "CheckOutDate": dayjs(checkOut).format('YYYY-MM-DD'),
+            "NoOfNights": dayjs(checkOut).diff(dayjs(checkIn), 'days'),
+            "CountryCode": "IN",
+            "DestinationCityId": cityId,
+            "ResultCount": null,
+            "GuestNationality": "IN",
+            "NoOfRooms": rooms,
+            "RoomGuests": [
+                {
+                    "Adult": adults,
+                    "Child": child,
+                    "ChildAge": childAge
+                }
+            ],
+            "MaxRating": maxRating,
+            "MinRating": minRating,
+            "UserIp": "49.36.217.215"
+        }) : { data: { data: null, Status: { Code: 0, Message: 'CityId not provided' } } };
 
         res.status(200).json({
             data: {
                 hotels,
-                // bdsdHotels: null //bdsdHotels.data.data as HotelListResponse
+                bdsdHotels: cityId ? bdsdHotels.data?.data as HotelListResponse | null : null
             }, Status: { Code: 200, Message: 'Data fetched successfully' }
         });
     } catch (error) {

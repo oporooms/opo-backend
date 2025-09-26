@@ -6,8 +6,9 @@ import { removeNoSqlInjection } from "@/functions";
 import { SearchProps } from "@/types/BdsdHotel/SearchProps";
 import { HotelListResponse } from "@/types/BdsdHotel/HotelList";
 import { HotelInfoResponse } from "@/types/BdsdHotel/HotelInfo";
+import { HotelRoomResponse } from "@/types/BdsdHotel/HotelRoom";
 
-const isDevelopment = process.env.NODE_ENV == 'development'
+const isDevelopment = process.env.NODE_ENV !== 'development'
 
 const prefixApi = isDevelopment ? 'https://www.stagingapi.bdsd.technology/api/hotelservice/rest' : 'https://api.bdsd.technology/api/hotelservice/rest'
 
@@ -182,7 +183,6 @@ export const searchHotel = async (
 
     const response = await bdsdApi<typeof data, HotelListResponse>(apiEndPoints.search, data)
 
-    console.log('BDSD Search Hotel Response:', response)
 
     if(response.Error.ErrorMessage !== '') {
         res.status(500).json({
@@ -200,7 +200,7 @@ export const searchHotel = async (
 }
 
 export const hotelInfo = async (
-    req: Request<{
+    req: Request<any, any, any, {
         UserIp?: string,
         ResultIndex: string | number,
         HotelCode: string | number,
@@ -208,7 +208,134 @@ export const hotelInfo = async (
     }>,
     res: Response<DefaultResponseBody<HotelInfoResponse>>
 ) => {
-    const { UserIp, ResultIndex, HotelCode, SearchTokenId } = req.params
+    const { UserIp, ResultIndex, HotelCode, SearchTokenId } = req.query
+
+    console.log('Query Params:', req.query);
+
+    if (ResultIndex === undefined || ResultIndex === null || String(ResultIndex).trim() === '') {
+        res.status(400).json({
+            data: null,
+            Status: { Code: 400, Message: 'ResultIndex is required' }
+        })
+        return
+    }
+    if (HotelCode === undefined || HotelCode === null) {
+        res.status(400).json({
+            data: null,
+            Status: { Code: 400, Message: 'HotelCode is required and must be a number' }
+        })
+        return
+    }
+    if (SearchTokenId === undefined || SearchTokenId === null || String(SearchTokenId).trim() === '') {
+        res.status(400).json({
+            data: null,
+            Status: { Code: 400, Message: 'SearchTokenId is required' }
+        })
+        return
+    }
+
+    const data = {
+        UserIp: UserIp || "122.161.64.143",
+        ResultIndex: String(ResultIndex),
+        HotelCode: Number(HotelCode),
+        SearchTokenId: String(SearchTokenId)
+    }
+
+    const response = await bdsdApi<typeof data, HotelInfoResponse>(apiEndPoints.gethotelinfo, data)
+
+    if (response.Error.ErrorMessage !== '') {
+        res.status(500).json({
+            data: response,
+            Status: { Code: response.Error.ErrorCode, Message: response.Error.ErrorMessage }
+        })
+
+        return
+    }
+
+    res.status(200).json({
+        data: response,
+        Status: {
+            Code: 200,
+            Message: "Success"
+        }
+    })
+}
+
+export const hotelRoom = async (
+    req: Request<any, any, any, {
+        UserIp?: string,
+        ResultIndex: string | number,
+        HotelCode: string | number,
+        SearchTokenId: string | number
+    }>,
+    res: Response<DefaultResponseBody<HotelRoomResponse>>
+) => {
+    const { UserIp, ResultIndex, HotelCode, SearchTokenId } = req.query
+
+    console.log('Query Params:', req.query);
+
+    if (ResultIndex === undefined || ResultIndex === null || String(ResultIndex).trim() === '') {
+        res.status(400).json({
+            data: null,
+            Status: { Code: 400, Message: 'ResultIndex is required' }
+        })
+        return
+    }
+    if (HotelCode === undefined || HotelCode === null) {
+        res.status(400).json({
+            data: null,
+            Status: { Code: 400, Message: 'HotelCode is required and must be a number' }
+        })
+        return
+    }
+    if (SearchTokenId === undefined || SearchTokenId === null || String(SearchTokenId).trim() === '') {
+        res.status(400).json({
+            data: null,
+            Status: { Code: 400, Message: 'SearchTokenId is required' }
+        })
+        return
+    }
+
+    const data = {
+        UserIp: UserIp || "122.161.64.143",
+        ResultIndex: String(ResultIndex),
+        HotelCode: Number(HotelCode),
+        SearchTokenId: String(SearchTokenId)
+    }
+
+    const response = await bdsdApi<typeof data, HotelRoomResponse>(apiEndPoints.getroominfo, data)
+
+    if (response.Error.ErrorMessage !== '') {
+        res.status(500).json({
+            data: response,
+            Status: { Code: response.Error.ErrorCode, Message: response.Error.ErrorMessage }
+        })
+
+        return
+    }
+
+    res.status(200).json({
+        data: response,
+        Status: {
+            Code: 200,
+            Message: "Success"
+        }
+    })
+}
+
+export const blockRoom = async (
+    req: Request<any, any, {
+        UserIp: string;
+        ResultIndex: string;
+        HotelCode: number;
+        HotelName: string;
+        NoOfRooms: number;
+        HotelRoomsDetails: { RoomIndex: number }[];
+        SearchTokenId: string;
+    }>,
+    res: Response<DefaultResponseBody<HotelRoomResponse>>
+) => {
+    const { UserIp, ResultIndex, HotelCode, HotelName, NoOfRooms, HotelRoomsDetails, SearchTokenId } = req.body
 
     if (ResultIndex === undefined || ResultIndex === null || String(ResultIndex).trim() === '') {
         res.status(400).json({
@@ -236,10 +363,13 @@ export const hotelInfo = async (
         UserIp: UserIp || "122.161.64.143",
         ResultIndex: String(ResultIndex),
         HotelCode: Number(HotelCode),
+        HotelName: String(HotelName),
+        NoOfRooms: Number(NoOfRooms),
+        HotelRoomsDetails: HotelRoomsDetails.map(r => ({ RoomIndex: Number(r.RoomIndex) })),
         SearchTokenId: String(SearchTokenId)
     }
 
-    const response = await bdsdApi<typeof data, HotelInfoResponse>(apiEndPoints.gethotelinfo, data)
+    const response = await bdsdApi<typeof data, HotelRoomResponse>(apiEndPoints.blockroom, data)
 
     if (response.Error.ErrorMessage !== '') {
         res.status(500).json({

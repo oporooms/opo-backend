@@ -24,6 +24,7 @@ function dbg(...args: unknown[]) {
 }
 
 function createRateLimiter(options: RateLimitOptions): RequestHandler {
+  console.log("Rate limiter options:", options);
   const { windowMs, max, keyGenerator } = options;
   const genKey =
     keyGenerator ||

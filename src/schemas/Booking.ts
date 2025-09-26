@@ -1,4 +1,4 @@
-import { Bookings } from "@/types/booking";
+import { Bookings } from "@/types/Bookings";
 import { Schema, model } from "mongoose";
 
 // Lightweight, robust schema matching the provided JSON Schema while
@@ -171,13 +171,13 @@ const IfHotelBookedSchema = new Schema(
         assignedRooms: { type: [AssignedRoomSchema], default: null },
         checkIn: { type: Date, required: true },
         checkOut: { type: Date, required: true },
-        guests: { type: GuestsCountsSchema, required: true },
-        hotelGuests: { type: [HotelGuestSchema], required: true, default: [] },
+        adults: { type: Number, required: true },
+        childrens: { type: Number, required: true },
+        hotelGuests: { type: [HotelGuestSchema],default: [] },
         hotelId: { type: Schema.Types.ObjectId, required: true }, // ObjectId or string
-        hotelOwnerId: { type: Schema.Types.ObjectId, required: true }, // ObjectId or string
         rooms: { type: Number, required: true },
         roomType: { type: String, required: true },
-        totalDays: { type: Number, required: true },
+        totalDays: { type: Number },
     },
     { _id: false }
 );
@@ -206,7 +206,6 @@ const IfFlightBookedSchema = new Schema(
 const BookingDetailsSchema = new Schema(
     {
         companyApproval: { type: String, default: null },
-        status: { type: String, required: true },
         ifBusBooked: { type: IfBusBookedSchema, default: null },
         ifFlightBooked: { type: IfFlightBookedSchema, default: null },
         ifHotelBooked: { type: IfHotelBookedSchema, default: undefined },
@@ -221,6 +220,7 @@ const BookingSchema = new Schema<Bookings>(
         bookingType: { type: String, required: true }, // e.g., 'bus' | 'flight' | 'hotel'
         bookingDate: { type: Date, required: true, default: () => new Date() },
         bookingDetails: { type: BookingDetailsSchema, required: true },
+        status: { type: String, required: true },
 
         createdBy: { type: Schema.Types.Mixed, required: true }, // ObjectId or string per JSON schema
         gstDetails: { type: GstDetailsSchema, default: null },

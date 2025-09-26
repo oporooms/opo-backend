@@ -1,11 +1,11 @@
-import { ObjectId } from "mongoose";
-import { Passengers } from "./Flight/Booking";
-import { Baggage, Meal, Seat } from "./Flight/SeatMap";
-import { FareConfirmation } from "./Flight/FareConfirmation";
-import { IGetBookingDetailsResponse } from "./Flight/GetBookingDetails";
-import { Passenger } from "./Bus/Passenger";
-import { BlockSeat } from "./Bus/BlockSeat";
-import { IGetBookingDetails } from "./Bus/GetBookingDetails";
+import { Passengers } from "../Flight/Booking";
+import { Baggage, Meal, Seat } from "../Flight/SeatMap";
+import { FareConfirmation } from "../Flight/FareConfirmation";
+import { IGetBookingDetailsResponse } from "../Flight/GetBookingDetails";
+import { Passenger } from "../Bus/Passenger";
+import { BlockSeat } from "../Bus/BlockSeat";
+import { IGetBookingDetails } from "../Bus/GetBookingDetails";
+import { Types } from "mongoose";
 
 
 export enum BookingStatus {
@@ -20,7 +20,7 @@ export enum PaymentStatus {
     declined = "declined",
 }
 
-const enum BookingType {
+export const enum BookingType {
     Hotel = "Hotel",
     Flight = "Flight",
     Bus = "Bus",
@@ -28,7 +28,7 @@ const enum BookingType {
     Package = "Package"
 }
 
-const enum CompanyApproval {
+export const enum CompanyApproval {
     Pending = "Pending",
     Approved = "Approved",
     Rejected = "Rejected"
@@ -41,7 +41,7 @@ export enum PaymentMode {
 }
 
 interface HotelDetails {
-    hotelId: ObjectId,
+    hotelId: Types.ObjectId,
     // hotelOwnerId: ObjectId,
     assignedRooms: [],
     rooms: number,
@@ -49,7 +49,8 @@ interface HotelDetails {
     childrens: number,
     checkIn: Date,
     checkOut: Date,
-    totalDays: number
+    totalDays: number,
+    roomType: string,
 }
 interface FlightDetails {
     travellers: Passengers[],
@@ -57,18 +58,21 @@ interface FlightDetails {
     selectedBaggage: Baggage[],
     selectedSeats: Seat[],
     fareConfirmation: FareConfirmation,
-    bookingResult: IGetBookingDetailsResponse
+    bookingResult: IGetBookingDetailsResponse,
 }
 interface BusDetails {
     travellers: Passenger[],
     blockSeat: BlockSeat,
+    boardingPointId: string,
+    droppingPointId: string,
+    resultIndex: string,
     bookingResult: IGetBookingDetails
 }
 interface TrainDetails { }
 interface PackageDetails {
-    packageId: ObjectId,
+    packageId: Types.ObjectId,
     packageName: string,
-    tourOperatorId: ObjectId,
+    tourOperatorId: Types.ObjectId,
     tourOperatorName?: string,
     description?: string,
     destinations: string[],
@@ -101,7 +105,7 @@ interface PackageDetails {
         }[]
     },
     accommodation?: {
-        hotelId?: ObjectId,
+        hotelId?: Types.ObjectId,
         name?: string,
         starRating?: number,
         roomType?: string,
@@ -143,7 +147,7 @@ interface PackageDetails {
     inclusions: string[],
     exclusions: string[],
     addOns?: {
-        id?: ObjectId | string,
+        id?: Types.ObjectId | string,
         name: string,
         description?: string,
         price: number,
@@ -196,21 +200,21 @@ interface OutSideHotelDetails {
 }
 
 export interface Bookings {
-    userId: ObjectId[] | string[],
-    bookingId: string,
+    userId: Types.ObjectId[],
+    bookingId?: string,
     bookingType: BookingType,
     bookingDate: Date,
     bookingDetails: {
         companyApproval: CompanyApproval,
-        ifHotelBooked: HotelDetails,
-        ifFlightBooked: FlightDetails,
-        ifBusBooked: BusDetails,
-        ifTrainBooked: TrainDetails,
-        ifPackageBooked: PackageDetails,
-        ifOutSideHotelBooked: OutSideHotelDetails
+        ifHotelBooked?: HotelDetails,
+        ifFlightBooked?: FlightDetails,
+        ifBusBooked?: BusDetails,
+        ifTrainBooked?: TrainDetails,
+        ifPackageBooked?: PackageDetails,
+        ifOutSideHotelBooked?: OutSideHotelDetails
     },
     status: BookingStatus,
-    createdBy: ObjectId | string,
+    createdBy: Types.ObjectId,
     gstDetails: {
         gstNo: string,
         gstName: string,

@@ -5,7 +5,7 @@ import cors from "cors";
 import { connectDB } from "@/config/mongo";
 import mainRoutes from "@/routes/mainRoutes";
 import authRoutes from "@/routes/authRoutes";
-import type { Request, Response } from "express";
+import { slowDown } from 'express-slow-down'
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -48,7 +48,7 @@ const PORT = process.env.PORT || 3000;
 // CORS configuration
 const allowedOrigins = [
   "http://localhost:3000",
-  "http://localhost:3001",
+  // "http://localhost:3001",
   "https://oporooms.com",
   "https://opo-frontend-lilac.vercel.app",
   "com.oporooms"
@@ -93,6 +93,7 @@ app.use(
   cors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       if (isOriginAllowed(origin)) {
+        console.log("CORS allowed:", origin);
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -110,28 +111,21 @@ app.use(
 
 app.use(express.json());
 
+const limiter = slowDown({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  delayAfter: 5, // Allow 5 requests per 15 minutes.
+  delayMs: (hits) => hits * 100, // Add 100 ms of delay to every request after the 5th one.
+  message: 'Too many requests, please try again later.',
+  // store: ... , // Use an external store for more precise rate limiting
+})
 
-// Prefer Redis based rate limiter if Redis configured, otherwise fallback to in-memory globalRateLimiter
-app.use("/auth", authRoutes);
-app.use("/api/v1", mainRoutes);
 
-let isConnected = false;
+app.use("/auth", limiter, authRoutes);
+app.use("/api/v1", limiter, mainRoutes);
 
-async function vercelHandler(req: Request, res: Response) {
-  if (!isConnected) {
-    const MONGO_URI = process.env.MONGO_URI || "";
-    await connectDB(MONGO_URI);
-    isConnected = true;
-  }
-  app(req, res);
-}
 
-if (process.env.VERCEL) {
-  module.exports = vercelHandler;
-} else {
-  const MONGO_URI = process.env.MONGO_URI || "";
-  connectDB(MONGO_URI);
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
+const MONGO_URI = process.env.MONGO_URI || "";
+connectDB(MONGO_URI);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

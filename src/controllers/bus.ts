@@ -13,7 +13,7 @@ import { BookSeatResponse } from "@/types/Bus/BookSeat";
 import { CancelBookingResponse } from "@/types/Bus/CancelBooking";
 import Booking from "@/schemas/Booking";
 import { Types } from "mongoose";
-import { Bookings, BookingStatus, PaymentMode } from "@/types/oldcode/Booking";
+import { Bookings, BookingStatus, PaymentMode } from "@/types/Bookings";
 import axios from "axios";
 import { removeNoSqlInjection } from "@/functions";
 
@@ -33,7 +33,7 @@ export const getBusList = async (
     req: Request<any, any, { city_name?: string; skip?: number }>,
     res: Response<DefaultResponseBody<{ list: BusListType[]; count: number }>>
 ) => {
-    const { city_name = removeNoSqlInjection(req.query.city_name as string), skip=0 } = req.query
+    const { city_name = removeNoSqlInjection(req.query.city_name as string), skip = 0 } = req.query
     const query: any = {};
 
     if (city_name) query.city_name = new RegExp(String(city_name).trim(), 'i');
@@ -62,7 +62,7 @@ export const getBusList = async (
         const prefixSlice = q.length >= 3 ? esc.slice(0, 3) : esc;
         const fullRegex = { $regex: esc, $options: "i" };
         const prefixRegex = { $regex: "^" + prefixSlice, $options: "i" };
-        
+
 
         const orConditions: any[] = [
             // full (anywhere) matches
@@ -415,15 +415,10 @@ export const blockBusSeat = async (
 export const bookBusSeat = async (
     req: Request<{}, {}, {
         booking_Id?: string;
-        SearchTokenId?: string;
-        ResultIndex?: string | number;
-        BoardingPointId?: number;
-        DroppingPointId?: number;
-        Passenger?: Passenger[];
     }>,
     res: Response<DefaultResponseBody<IGetBookingDetails | BookSeatResponse>>
 ) => {
-    const { booking_Id, SearchTokenId, ResultIndex, BoardingPointId, DroppingPointId, Passenger } = req.body;
+    const { booking_Id } = req.body;
 
     let booking: Bookings | null = null;
 
@@ -439,11 +434,13 @@ export const bookBusSeat = async (
                         Message: "Booking not found"
                     }
                 });
+
+                return
             }
 
-            if (booking?.bookingDetails.status === BookingStatus.booked) {
+            if (booking.status === BookingStatus.BOOKED) {
                 res.status(200).json({
-                    data: booking.bookingDetails.ifBusBooked?.otherDetails as IGetBookingDetails,
+                    data: booking.bookingDetails.ifBusBooked?.bookingResult,
                     Status: {
                         Code: 200,
                         Message: "Success"
@@ -463,11 +460,11 @@ export const bookBusSeat = async (
 
     const params = {
         UserIp: "103.209.223.52",
-        SearchTokenId: booking?.bookingDetails.ifBusBooked?.otherDetails?.SearchTokenId || SearchTokenId,
-        ResultIndex: booking?.bookingDetails.ifBusBooked?.otherDetails?.ResultIndex || ResultIndex,
-        BoardingPointId: booking?.bookingDetails.ifBusBooked?.otherDetails?.BoardingPointId || BoardingPointId,
-        DroppingPointId: booking?.bookingDetails.ifBusBooked?.otherDetails?.DroppingPointId || DroppingPointId,
-        Passenger: booking?.bookingDetails.ifBusBooked?.travellers || Passenger,
+        SearchTokenId: booking?.bookingDetails.ifBusBooked?.blockSeat?.SearchTokenId,
+        ResultIndex: booking?.bookingDetails.ifBusBooked?.resultIndex,
+        BoardingPointId: booking?.bookingDetails.ifBusBooked?.boardingPointId,
+        DroppingPointId: booking?.bookingDetails.ifBusBooked?.droppingPointId,
+        Passenger: booking?.bookingDetails.ifBusBooked?.blockSeat?.Result?.Passenger,
     };
 
     try {
@@ -483,8 +480,8 @@ export const bookBusSeat = async (
                     { _id: new Types.ObjectId(booking_Id) },
                     {
                         $set: {
-                            'bookingDetails.ifBusBooked.otherDetails': getBookingDetailsResponse.data,
-                            'bookingDetails.status': BookingStatus.booked,
+                            'bookingDetails.ifBusBooked.otherDetails': getBookingDetailsResponse.data.data,
+                            'status': BookingStatus.BOOKED,
                         }
                     }
                 );
@@ -617,9 +614,9 @@ export const cancelBooking = async (
 
         const params = {
             UserIp: "223.177.107.156",
-            SearchTokenId: booking.bookingDetails.ifBusBooked?.otherDetails?.SearchTokenId,
-            BookingId: booking.bookingDetails.ifBusBooked?.otherDetails?.Result?.BookingId,
-            SeatId: booking.bookingDetails.ifBusBooked?.travellers?.map((traveller) => traveller.SeatName).join(','),
+            SearchTokenId: booking.bookingDetails.ifBusBooked?.bookingResult?.SearchTokenId,
+            BookingId: booking.bookingDetails.ifBusBooked?.bookingResult?.Result?.BookingId,
+            SeatId: booking.bookingDetails.ifBusBooked?.blockSeat?.Result?.Passenger?.map((traveller) => traveller.Seat?.SeatName).join(','),
             Remarks: "Cancel Bus Ticket"
         };
 
