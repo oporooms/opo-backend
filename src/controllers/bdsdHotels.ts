@@ -8,7 +8,7 @@ import { HotelListResponse } from "@/types/BdsdHotel/HotelList";
 import { HotelInfoResponse } from "@/types/BdsdHotel/HotelInfo";
 import { HotelRoomResponse } from "@/types/BdsdHotel/HotelRoom";
 
-const isDevelopment = process.env.NODE_ENV !== 'development'
+const isDevelopment = process.env.NODE_ENV == 'development'
 
 const prefixApi = isDevelopment ? 'https://www.stagingapi.bdsd.technology/api/hotelservice/rest' : 'https://api.bdsd.technology/api/hotelservice/rest'
 
