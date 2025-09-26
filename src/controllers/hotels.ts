@@ -12,6 +12,14 @@ import axios from "axios";
 import dayjs from "dayjs";
 import type { Request, Response } from "express";
 import { PipelineStage, Types } from "mongoose";
+import dotenv from "dotenv";
+
+
+if (process.env.NODE_ENV === "production") {
+  dotenv.config({ path: ".env" });
+} else {
+    dotenv.config({ path: ".env.local" });
+}
 
 // Create a new hotel
 export const createHotel = async (
