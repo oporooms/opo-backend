@@ -210,8 +210,6 @@ export const hotelInfo = async (
 ) => {
     const { UserIp, ResultIndex, HotelCode, SearchTokenId } = req.query
 
-    console.log('Query Params:', req.query);
-
     if (ResultIndex === undefined || ResultIndex === null || String(ResultIndex).trim() === '') {
         res.status(400).json({
             data: null,

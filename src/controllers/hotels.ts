@@ -16,7 +16,7 @@ import dotenv from "dotenv";
 
 
 if (process.env.NODE_ENV === "production") {
-  dotenv.config({ path: ".env" });
+    dotenv.config({ path: ".env" });
 } else {
     dotenv.config({ path: ".env.local" });
 }
@@ -233,7 +233,7 @@ export const getAllHotels = async (req: Request<{}, any, any, SearchHotel>, res:
 
         const hotels = await Hotel.aggregate(pipeline) as IHotel[];
 
-      
+
 
         res.status(200).json({ data: hotels, Status: { Code: 0, Message: '' } });
     } catch (error) {
@@ -244,11 +244,11 @@ export const getAllHotels = async (req: Request<{}, any, any, SearchHotel>, res:
 export const getSearchedSingleHotel = async (req: Request<{ slug: string }>, res: Response<DefaultResponseBody<IHotel>>): Promise<void> => {
     try {
         const { slug } = req.params;
-        const nameSlug = slug.replace(/-OPO\d+$/i, '').replace(/-/g, ' ').trim().toLowerCase();
+        // const nameSlug = slug.replace(/-OPO\d+$/i, '').replace(/-/g, ' ').trim().toLowerCase();
 
-        console.log({ nameSlug });
+        // console.log({ nameSlug });
 
-        const hotel = await Hotel.findOne({ name: new RegExp(removeNoSqlInjection(nameSlug), 'i'), status: HotelStatus.APPROVED }).lean();
+        const hotel = await Hotel.findOne({ _id: new Types.ObjectId(slug), status: HotelStatus.APPROVED }).lean();
 
         if (!hotel) {
             res.status(404).json({ data: null, Status: { Code: 404, Message: 'Hotel not found' } });
