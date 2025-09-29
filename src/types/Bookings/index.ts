@@ -66,7 +66,8 @@ interface BusDetails {
     boardingPointId: string,
     droppingPointId: string,
     resultIndex: string,
-    bookingResult: IGetBookingDetails
+    searchTokenId: string,
+    bookingResult?: IGetBookingDetails
 }
 interface TrainDetails { }
 interface PackageDetails {

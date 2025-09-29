@@ -25,12 +25,6 @@ export const createHotelBooking = async (
 ) => {
     const { traveller, hotelId, rooms, checkIn, checkOut, adults, children, roomType, paymentMode, price } = req.body;
 
-    console.log({
-        traveller, hotelId, rooms, checkIn, checkOut, adults, children, roomType, paymentMode, price
-    })
-
-    console.log(req.user?.userId)
-
     const isAlreadyBooked = await Booking.aggregate([
         { $match: { 'bookingDetails.ifHotelBooked.hotelId': new Types.ObjectId(hotelId) } },
         {
@@ -81,14 +75,7 @@ export const createHotelBooking = async (
     const totalRooms = await Room.countDocuments({ hotelId: hotel?._id, type: roomType })
 
     const totalRoomsAvailable = totalRooms - totalRoomsBooked;
-
-    console.log({
-        isAlreadyBooked,
-        totalRoomsBooked,
-        totalRoomsAvailable,
-        totalRooms,
-    })
-
+    
     // if (totalRoomsAvailable < rooms) {
     //     res.status(400).json({
     //         data: null,
@@ -101,7 +88,6 @@ export const createHotelBooking = async (
     // }
 
     const user = await User.findOne({ _id: new Types.ObjectId(String(req.user?.userId)) });
-    console.log({ user })
     const createdById = await User.findOne({ _id: new Types.ObjectId(String(req.user?.userId)) });
 
     if (!createdById) {
@@ -116,6 +102,7 @@ export const createHotelBooking = async (
     }
 
     const totalAmount = Number(hotel.rooms.find((i) => i.type === roomType)?.price);
+    const tax = totalAmount * 0.12; // 12% GST
     const totalDays = dayjs(checkOut).diff(dayjs(checkIn), 'day');
 
     const order = paymentMode == PaymentMode.onlinePay ? await axios.post<DefaultResponseBody<Orders.RazorpayOrder>>(`${process.env.SERVER_URL}/api/v1/payment/razorpay/createOrder`, {
@@ -151,8 +138,8 @@ export const createHotelBooking = async (
             mode: paymentMode,
             status: PaymentStatus.pending,
             cost: +totalAmount,
-            fee: 0,
-            total: Math.round(totalAmount),
+            fee: +tax,
+            total: Math.round(totalAmount + tax),
             transactionDetails: {
                 date: new Date(),
                 id: order?.data.data?.id || '',

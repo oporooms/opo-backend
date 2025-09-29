@@ -23,9 +23,7 @@ export const createFlightBooking = async (
     req: Request<any, any, CreateFlightBookingRequest>,
     res: Response<DefaultResponseBody<CreateFlightBookingResponse>>
 ) => {
-    const { travellers, otherDetails, userId, createdBy, paymentMode, price, seat, seatReturn, meal, mealReturn, baggage, baggageReturn, fareId, fareReturnId, SearchTokenId, JourneyType } = req.body;
-
-    console.log({ body: req.body });
+    const { travellers, otherDetails, paymentMode, price, seat, seatReturn, meal, mealReturn, baggage, baggageReturn, fareId, fareReturnId, SearchTokenId, JourneyType } = req.body;
 
     type FareSeatResponse = DefaultResponseBody<{
         fareConfirmation: FareConfirmation;
@@ -38,7 +36,7 @@ export const createFlightBooking = async (
         `${process.env.SERVER_URL}/api/v1/flight/getSeatConfirmationFare?fareId=${fareId}&fareReturnId=${fareReturnId}&SearchTokenId=${SearchTokenId}`
     ).then(response => response.data)
         .catch(error => {
-            console.error("Error fetching fare and seat details:", error);
+            res.status(500).json({ data: null, Status: { Code: 500, Message: "Failed to fetch fare and seat details" } });
             return null;
         });
 
