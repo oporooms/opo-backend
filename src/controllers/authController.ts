@@ -265,8 +265,9 @@ export const register = async (
     return;
   }
 
-  const validate = formatIndianPhoneNumber(data.phone).cleanedPhone;
-  const existingUser = await User.findOne({ phone: validate });
+  const existingUser = await User.findOne({ phone: isValidPhone.cleanedPhone }, { _id: 1 }).lean();
+
+  console.log({ existingUser })
 
   if (existingUser) {
     res.status(400).json({
@@ -279,9 +280,16 @@ export const register = async (
     return;
   }
 
+  const isValid = await verifyOtp(String(isValidPhone.cleanedPhone), Number(data.code));
+
+  if (isValid.Status.Code == 400) {
+    res.status(400).json(isValid);
+    return;
+  }
+
   const user = new User({
     ...req.body,
-    phone: validate,
+    phone: isValidPhone.cleanedPhone,
     userRole,
     wallet: walletBalance
   });
@@ -376,8 +384,6 @@ export const login = async (
   }
 
   const isValid = await verifyOtp(isValidPhone.cleanedPhone, code);
-
-  console.log({ isValid })
 
   if (isValid.Status.Code == 400) {
     res.status(400).json(isValid);

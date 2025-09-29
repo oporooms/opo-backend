@@ -15,7 +15,9 @@ export interface VerifyOtpRequest extends Request {
 }
 
 export interface RegisterRequest extends Request {
-  body: IUser;
+  body: IUser & {
+    code: string;
+  };
 }
 
 export interface LoginRequest extends Request {
