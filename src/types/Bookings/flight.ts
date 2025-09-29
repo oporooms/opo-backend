@@ -20,7 +20,21 @@ export interface CreateFlightBookingRequest {
     fareId: string,
     fareReturnId: string,
     SearchTokenId: string,
-    JourneyType: string
+    JourneyType: string,
+    otherDetails: {
+        email: string,
+        phone: string,
+        address: string,
+        gstDetails?: {
+            gstNo?: string,
+            gstName?: string,
+            gstAddress: {
+                address?: string,
+                state?: string,
+                pincode?: string
+            }
+        },
+    }
 }
 
 export interface CreateFlightBookingResponse {

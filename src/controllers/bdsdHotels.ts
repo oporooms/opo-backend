@@ -2,7 +2,6 @@ import { DefaultResponseBody } from "@/types/default";
 import { Request, Response } from "express";
 import dayjs from "dayjs";
 import bdsdApi from "@/functions/bdsdApi";
-import { removeNoSqlInjection } from "@/functions";
 import { SearchProps } from "@/types/BdsdHotel/SearchProps";
 import { HotelListResponse } from "@/types/BdsdHotel/HotelList";
 import { HotelInfoResponse } from "@/types/BdsdHotel/HotelInfo";

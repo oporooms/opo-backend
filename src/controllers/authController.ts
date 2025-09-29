@@ -236,7 +236,15 @@ export const verifyOtp = async (phone: number | string, code: number): Promise<D
 
 export const register = async (
   req: RegisterRequest,
-  res: Response<DefaultResponseBody<string>>
+  res: Response<DefaultResponseBody<
+    {
+      token: string;
+      id: string;
+      fullname: string;
+      email: string;
+      phone: string;
+    } | string>
+  >
 ) => {
   const data = req.body;
 
@@ -280,13 +288,57 @@ export const register = async (
 
   try {
     await user.save();
-    res.status(200).json({
-      data: "User registered successfully",
-      Status: {
-        Code: 200,
-        Message: "User registered successfully"
+
+    const token = jwt.sign(
+      { userId: user._id },
+      JWT_SECRET,
+      {
+        expiresIn: "30d", // 1 month
+        algorithm: "HS256",
+        issuer: JWT_ISSUER || undefined,
+        audience: JWT_AUDIENCE || undefined,
       }
-    });
+    );
+
+    if (!token) {
+      res.status(500).json({
+        data: "Token generation failed",
+        Status: {
+          Code: 500,
+          Message: "Token generation failed"
+        }
+      });
+      return;
+    }
+
+    await User.updateOne({ _id: user._id }, {
+      token: token,
+      lastLogin: new Date()
+    }).lean();
+
+    const cookieOptions = {
+      httpOnly: true, // Prevents client-side JavaScript access
+      secure: process.env.NODE_ENV === 'production', // Use secure in production
+      sameSite: 'strict' as const, // Or 'Strict' for stricter security
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+    };
+
+    res
+      .status(200)
+      .json({
+        data: {
+          token,
+          id: user._id.toString(),
+          fullname: user.fullname || "",
+          email: user.email || "",
+          phone: user.phone || ""
+        },
+        Status: {
+          Code: 200,
+          Message: "Login successful"
+        }
+      });
+
   } catch (error: any) {
     res.status(500).json({
       data: error.message || "User registration failed",
@@ -310,8 +362,6 @@ export const login = async (
 ) => {
   const { phone, code } = req.body
 
-  console.log(req.body)
-
   const isValidPhone = formatIndianPhoneNumber(phone);
 
   if (isValidPhone.ErrorCode !== 0 || !isValidPhone.cleanedPhone) {
@@ -325,8 +375,6 @@ export const login = async (
     return;
   }
 
-  console.log("running..1....")
-
   const isValid = await verifyOtp(isValidPhone.cleanedPhone, code);
 
   console.log({ isValid })
@@ -336,11 +384,7 @@ export const login = async (
     return;
   }
 
-  console.log("running..2....")
-
   const user = await User.findOne({ phone: isValidPhone.cleanedPhone }, { _id: 1 }).lean();
-
-  console.log({ user });
 
   if (!user) {
     res.status(404).json({
@@ -364,8 +408,6 @@ export const login = async (
     }
   );
 
-  console.log(token)
-
   if (!token) {
     res.status(500).json({
       data: "Token generation failed",
@@ -388,8 +430,6 @@ export const login = async (
     sameSite: 'strict' as const, // Or 'Strict' for stricter security
     maxAge: 60 * 60 * 24 * 7, // 1 week
   };
-
-  res.cookie('session_token', token, cookieOptions);
 
   res
     .status(200)

@@ -1,5 +1,5 @@
 import { Passengers } from "../Flight/Booking";
-import { Baggage, Meal, Seat } from "../Flight/SeatMap";
+import { Baggage, Meal, SeatList } from "../Flight/SeatMap";
 import { FareConfirmation } from "../Flight/FareConfirmation";
 import { IGetBookingDetailsResponse } from "../Flight/GetBookingDetails";
 import { Passenger } from "../Bus/Passenger";
@@ -56,9 +56,9 @@ interface FlightDetails {
     travellers: Passengers[],
     selectedMeal: Meal[],
     selectedBaggage: Baggage[],
-    selectedSeats: Seat[],
+    selectedSeats: SeatList[],
     fareConfirmation: FareConfirmation,
-    bookingResult: IGetBookingDetailsResponse,
+    bookingResult?: IGetBookingDetailsResponse,
 }
 interface BusDetails {
     travellers: Passenger[],

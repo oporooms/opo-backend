@@ -118,7 +118,6 @@ export const createHotelBooking = async (
     }
 
     const totalAmount = Number(hotel.rooms.find((i) => i.type === roomType)?.price);
-    console.log({ totalAmount, price })
     const totalDays = dayjs(checkOut).diff(dayjs(checkIn), 'day');
 
     const order = paymentMode == PaymentMode.onlinePay ? await axios.post<DefaultResponseBody<Orders.RazorpayOrder>>(`${process.env.SERVER_URL}/api/v1/payment/razorpay/createOrder`, {
@@ -130,8 +129,6 @@ export const createHotelBooking = async (
             'Authorization': req.headers.authorization
         }
     }) : null;
-
-    console.log({ order });
 
     const obj: Bookings = {
         userId: [new Types.ObjectId(String(req.user?.userId))],
