@@ -1,10 +1,12 @@
-import { overallClassification } from "@/functions";
+import { formatIndianPhoneNumber, overallClassification } from "@/functions";
+import Booking from "@/schemas/Booking";
 import User from "@/schemas/User";
 import { Bookings, BookingStatus, BookingType, CompanyApproval, PaymentMode, PaymentStatus } from "@/types/Bookings";
 import { CreateFlightBookingRequest, CreateFlightBookingResponse } from "@/types/Bookings/flight";
 import { DefaultResponseBody } from "@/types/default";
 import { FareConfirmation } from "@/types/Flight/FareConfirmation";
 import { Baggage, FlightSeatMap, Meal, SeatList } from "@/types/Flight/SeatMap";
+import { IUser } from "@/types/user";
 import axios from "axios";
 import dotenv from "dotenv";
 import { Request, Response } from "express";
@@ -23,6 +25,8 @@ export const createFlightBooking = async (
 ) => {
     const { travellers, otherDetails, userId, createdBy, paymentMode, price, seat, seatReturn, meal, mealReturn, baggage, baggageReturn, fareId, fareReturnId, SearchTokenId, JourneyType } = req.body;
 
+    console.log({ body: req.body });
+
     type FareSeatResponse = DefaultResponseBody<{
         fareConfirmation: FareConfirmation;
         seatMap: FlightSeatMap;
@@ -30,18 +34,22 @@ export const createFlightBooking = async (
         seatMapReturn?: FlightSeatMap | null;
     } | null>;
 
-    let fareDetails: FareSeatResponse;
-    try {
-        ({ data: fareDetails } = await axios.get<FareSeatResponse>(
-            `${process.env.SERVER_URL}/api/flight/getSeatConfirmationFare?fareId=${fareId}&fareReturnId=${fareReturnId || ""}&SearchTokenId=${SearchTokenId}`
-        ));
-    } catch (error) {
-        res.status(502).json({ data: null, Status: { Code: 502, Message: "Failed to fetch fare details" } });
+    let fareDetails = await axios.get<FareSeatResponse>(
+        `${process.env.SERVER_URL}/api/v1/flight/getSeatConfirmationFare?fareId=${fareId}&fareReturnId=${fareReturnId}&SearchTokenId=${SearchTokenId}`
+    ).then(response => response.data)
+        .catch(error => {
+            console.error("Error fetching fare and seat details:", error);
+            return null;
+        });
+
+    if (!fareDetails || fareDetails.Status.Code !== 200) {
+        res.status(400).json({ data: null, Status: { Code: 400, Message: "Failed to fetch fare and seat details" } });
         return;
     }
 
     const { data: fareData, Status: fareStatus } = fareDetails;
-    const fareConfirmation = fareData?.fareConfirmation;
+
+    const fareConfirmation = fareDetails?.data?.fareConfirmation;
 
     if (!fareData || fareStatus?.Code !== 200 || !fareConfirmation?.Result?.Segments?.length) {
         res.status(400).json({ data: null, Status: { Code: 400, Message: "Invalid fare details" } });
@@ -100,8 +108,20 @@ export const createFlightBooking = async (
     const classification = overallClassification(fareConfirmation.Result?.Segments?.[0] ?? []);
     const classificationReturn = isRoundTrip && fareConfirmationReturn ? overallClassification(fareConfirmationReturn.Result?.Segments?.[0] ?? []) : undefined;
 
-    const user = await User.findOne({ _id: new Types.ObjectId(userId) });
-    const createdById = await User.findOne({ _id: new Types.ObjectId(createdBy) });
+    const user = await User.findOne({ _id: new Types.ObjectId(req.user?.userId) });
+    const createdById = await User.findOne({ _id: new Types.ObjectId(req.user?.userId) });
+
+    if (!createdById) {
+        res.status(404).json({
+            data: null,
+            Status: {
+                Code: 404,
+                Message: "Unauthorized",
+            }
+        });
+        return;
+    }
+
 
     const order = paymentMode == PaymentMode.onlinePay ? await axios.post<DefaultResponseBody<Orders.RazorpayOrder>>(`${process.env.SERVER_URL}/api/v1/payment/razorpay/createOrder`, {
         amount: totalAmount,
@@ -120,12 +140,24 @@ export const createFlightBooking = async (
         bookingDetails: {
             companyApproval: CompanyApproval.Approved,
             ifFlightBooked: {
-               travellers: travellers,
-               selectedSeats: selectedSeat,
-               selectedBaggage: selectedBaggage,
-               selectedMeal: selectedMeal,
-               fareConfirmation: fareConfirmation,
-
+                travellers: travellers?.map((traveller, travellerIndex) => ({
+                    ...traveller,
+                    AddressLine1: otherDetails?.address1,
+                    AddressLine2: otherDetails?.address2,
+                    City: otherDetails?.city,
+                    CountryCode: 'IN',
+                    CountryName: 'India',
+                    Email: otherDetails?.email,
+                    Nationality: 'IN',
+                    ContactNo: formatIndianPhoneNumber(otherDetails?.phone).cleanedPhone as string,
+                    Baggage: selectedBaggage,
+                    Meal: selectedMeal,
+                    Seat: selectedSeat.filter((_, seatIndex) => seatIndex === travellerIndex),
+                })),
+                selectedSeats: selectedSeat,
+                selectedBaggage: selectedBaggage,
+                selectedMeal: selectedMeal,
+                fareConfirmation: fareConfirmation,
             },
         },
         status: BookingStatus.BOOKED,
@@ -143,44 +175,127 @@ export const createFlightBooking = async (
             },
         },
         gstDetails: otherDetails?.gstDetails as Bookings['gstDetails'],
-        createdBy: new Types.ObjectId(createdById?._id.toString()),
+        createdBy: new Types.ObjectId(createdById._id.toString()),
         createdAt: new Date(),
         updatedAt: new Date()
     }
 
-    // const objReturn: Bookings['bookingDetails']['ifFlightBooked'] | undefined = isRoundTrip && fareConfirmationReturn && {
-    //     userId: [new Types.ObjectId(String(req.user?.userId))],
-    //     bookingType: BookingType.Flight,
-    //     bookingDate: new Date(),
-    //     bookingDetails: {
-    //         companyApproval: CompanyApproval.Approved,
-    //         ifFlightBooked: {
-    //             travellers: travellers,
-    //             selectedSeats: selectedSeatReturn,
-    //             selectedBaggage: selectedBaggageReturn,
-    //             selectedMeal: selectedMealReturn,
-    //             fareConfirmation: fareConfirmationReturn,
-    //         },
-    //     },
-    //     status: BookingStatus.BOOKED,
-    //     payment: {
-    //         mode: paymentMode,
-    //         status: PaymentStatus.pending,
-    //         cost: +totalAmount,
-    //         fee: 0,
-    //         total: Math.round(Number(totalAmount)),
-    //         transactionDetails: {
-    //             date: new Date(),
-    //             id: order?.data.data?.id || '',
-    //             mode: PaymentMode.onlinePay,
-    //             orderId: order?.data.data?.id || '',
-    //         },
-    //     },
-    //     gstDetails: otherDetails?.gstDetails as Bookings['gstDetails'],
-    //     createdBy: new Types.ObjectId(createdById?._id.toString()),
-    //     createdAt: new Date(),
-    //     updatedAt: new Date()
-    // }
-        
+    const objReturn: Bookings | null = (isRoundTrip && fareConfirmationReturn) ? {
+        userId: [new Types.ObjectId(String(req.user?.userId))],
+        bookingType: BookingType.Flight,
+        bookingDate: new Date(),
+        bookingDetails: {
+            companyApproval: CompanyApproval.Approved,
+            ifFlightBooked: {
+                travellers: travellers,
+                selectedSeats: selectedSeatReturn as SeatList[],
+                selectedBaggage: selectedBaggageReturn as Baggage[],
+                selectedMeal: selectedMealReturn as Meal[],
+                fareConfirmation: fareConfirmationReturn,
+            },
+        },
+        status: BookingStatus.BOOKED,
+        payment: {
+            mode: paymentMode,
+            status: PaymentStatus.pending,
+            cost: +totalAmount,
+            fee: 0,
+            total: Math.round(Number(totalAmount)),
+            transactionDetails: {
+                date: new Date(),
+                id: order?.data.data?.id || '',
+                mode: PaymentMode.onlinePay,
+                orderId: order?.data.data?.id || '',
+            },
+        },
+        gstDetails: otherDetails?.gstDetails as Bookings['gstDetails'],
+        createdBy: new Types.ObjectId(createdById._id.toString()),
+        createdAt: new Date(),
+        updatedAt: new Date()
+    } : null
+
+    if (paymentMode === PaymentMode.payByCompany) {
+        const companyId = createdById.userRole === 'CADMIN' ? createdById._id : createdById.companyId;
+
+        const companyWallet = await User.findOne({ _id: companyId as string });
+
+        if (!companyWallet?.wallet || companyWallet?.wallet < obj.payment.total) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "Insufficient balance in company wallet",
+                }
+            });
+            return;
+        }
+
+        obj.bookingDetails.companyApproval = createdById?.userRole === 'EMPLOYEE' ? CompanyApproval.Pending : CompanyApproval.Approved;
+
+        obj.payment.status = createdById?.userRole === 'EMPLOYEE' ? PaymentStatus.pending : PaymentStatus.success;
+
+        obj.status = createdById?.userRole === 'EMPLOYEE' ? BookingStatus.PENDING : BookingStatus.BOOKED;
+        obj.createdBy = new Types.ObjectId(String(companyId));
+    }
+
+    if (paymentMode === PaymentMode.payByCompany && Number(JourneyType) === 2 && objReturn) {
+        const companyId = createdById.userRole === 'CADMIN' ? createdById._id : createdById.companyId;
+
+        const companyWallet = await User.findOne({ _id: companyId as string });
+
+        if (!companyWallet?.wallet || companyWallet?.wallet < obj.payment.total) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "Insufficient balance in company wallet",
+                }
+            });
+            return;
+        }
+
+        obj.bookingDetails.companyApproval = createdById?.userRole === 'EMPLOYEE' ? CompanyApproval.Pending : CompanyApproval.Approved;
+
+        obj.payment.status = createdById?.userRole === 'EMPLOYEE' ? PaymentStatus.pending : PaymentStatus.success;
+
+        obj.status = createdById?.userRole === 'EMPLOYEE' ? BookingStatus.PENDING : BookingStatus.BOOKED;
+        obj.createdBy = new Types.ObjectId(String(companyId));
+    }
+
+    if (paymentMode === PaymentMode.onlinePay) {
+        obj.createdBy = new Types.ObjectId(String(createdById?._id));
+        obj.status = BookingStatus.BOOKED;
+        obj.payment.transactionDetails = {
+            ...obj.payment.transactionDetails,
+            mode: PaymentMode.onlinePay
+        };
+    }
+
+    const newBooking = await Booking.insertOne({
+        ...obj
+    })
+
+    if (!newBooking._id) {
+        res.status(500).json({
+            data: null,
+            Status: {
+                Code: 500,
+                Message: "Failed to create booking",
+            }
+        });
+        return;
+    }
+
+    res.status(200).json({
+        data: {
+            order: order?.data.data,
+            bookingId: newBooking?._id.toString(),
+            user: user as IUser,
+        },
+        Status: {
+            Code: 200,
+            Message: "Flight booked successfully",
+        }
+    });
 
 }

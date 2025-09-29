@@ -195,10 +195,12 @@ const IfBusBookedSchema = new Schema(
 
 const IfFlightBookedSchema = new Schema(
     {
-        otherDetails: { type: Schema.Types.Mixed },
-        passengers: { type: [Schema.Types.Mixed], default: [] },
+        travellers: { type: [Schema.Types.Mixed], default: [] },
         selectedBaggage: { type: [Schema.Types.Mixed], default: null },
+        selectedSeats: { type: [Schema.Types.Mixed], default: null },
         selectedMeal: { type: [Schema.Types.Mixed], default: null },
+        fareConfirmation: { type: Schema.Types.Mixed, default: null },
+        bookingResult: { type: Schema.Types.Mixed, default: null },
     },
     { _id: false, strict: false }
 );

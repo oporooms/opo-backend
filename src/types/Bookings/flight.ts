@@ -24,7 +24,9 @@ export interface CreateFlightBookingRequest {
     otherDetails: {
         email: string,
         phone: string,
-        address: string,
+        address1: string,
+        address2: string,
+        city: string,
         gstDetails?: {
             gstNo?: string,
             gstName?: string,

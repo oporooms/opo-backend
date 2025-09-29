@@ -104,8 +104,6 @@ export const createHotelBooking = async (
     console.log({ user })
     const createdById = await User.findOne({ _id: new Types.ObjectId(String(req.user?.userId)) });
 
-    console.log({ createdById })
-
     if (!createdById) {
         res.status(404).json({
             data: null,
@@ -192,10 +190,6 @@ export const createHotelBooking = async (
         obj.createdBy = new Types.ObjectId(String(companyId));
     }
 
-    const newBooking = await Booking.insertOne({
-        ...obj
-    })
-
     if (paymentMode === PaymentMode.onlinePay) {
         obj.createdBy = new Types.ObjectId(String(createdById?._id));
         obj.status = BookingStatus.BOOKED;
@@ -203,6 +197,21 @@ export const createHotelBooking = async (
             ...obj.payment.transactionDetails,
             mode: PaymentMode.onlinePay
         };
+    }
+
+    const newBooking = await Booking.insertOne({
+        ...obj
+    })
+
+    if (!newBooking._id) {
+        res.status(500).json({
+            data: null,
+            Status: {
+                Code: 500,
+                Message: "Failed to create booking",
+            }
+        });
+        return;
     }
 
     res.status(200).json({
