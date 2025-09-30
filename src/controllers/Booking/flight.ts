@@ -297,3 +297,37 @@ export const createFlightBooking = async (
     });
 
 }
+
+export const getFlightBookings = async (
+    req: Request,
+    res: Response<DefaultResponseBody<Bookings[]>>
+) => {
+    const userId = req.user?.userId;
+
+    const bookings = await Booking.find({
+        $or: [
+            { userId: { $in: [new Types.ObjectId(userId)] } },
+            { createdBy: new Types.ObjectId(String(userId)) }
+        ],
+        bookingType: BookingType.Flight
+    });
+
+    if (!bookings) {
+        res.status(404).json({
+            data: null,
+            Status: {
+                Code: 404,
+                Message: "No bookings found",
+            }
+        });
+        return;
+    }
+
+    res.status(200).json({
+        data: bookings,
+        Status: {
+            Code: 200,
+            Message: "Flight bookings retrieved successfully",
+        }
+    });
+}

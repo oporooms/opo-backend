@@ -173,3 +173,42 @@ export const createBusBooking = async (
     });
 
 }
+
+export const getBusBookings = async (
+    req: Request,
+    res: Response<DefaultResponseBody<Bookings[]>>
+) => {
+    const userId = req.user?.userId;
+
+    const bookings = await Booking.aggregate([
+        {
+            $match: {
+                $or: [
+                    { userId: { $in: [new Types.ObjectId(userId)] } },
+                    { createdBy: new Types.ObjectId(String(userId)) }
+                ],
+                bookingType: BookingType.Bus
+            }
+        }
+    ]);
+
+    if (!bookings || bookings.length === 0) {
+        res.status(404).json({
+            data: null,
+            Status: {
+                Code: 404,
+                Message: "No bus bookings found",
+            }
+        });
+        return;
+    }
+
+    res.status(200).json({
+        data: bookings,
+        Status: {
+            Code: 200,
+            Message: "Bus bookings retrieved successfully",
+        }
+    });
+    return;
+}

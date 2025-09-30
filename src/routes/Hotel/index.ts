@@ -14,8 +14,8 @@ hotelRouter.post('/delete-many', deleteMultipleHotels) // Delete many hotels wit
 
 // GET routes
 hotelRouter.get('/', getAllHotels)
-hotelRouter.get('/:slug', getSearchedSingleHotel)
 hotelRouter.post('/searchHotelsForBooking', searchHotelsForBooking)
+hotelRouter.get('/:slug', getSearchedSingleHotel)
 hotelRouter.use('/bdsd', bdsdHotelRouter);
 
 // PUT routes

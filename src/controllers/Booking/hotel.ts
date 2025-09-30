@@ -75,7 +75,7 @@ export const createHotelBooking = async (
     const totalRooms = await Room.countDocuments({ hotelId: hotel?._id, type: roomType })
 
     const totalRoomsAvailable = totalRooms - totalRoomsBooked;
-    
+
     // if (totalRoomsAvailable < rooms) {
     //     res.status(400).json({
     //         data: null,
@@ -210,6 +210,58 @@ export const createHotelBooking = async (
         Status: {
             Code: 200,
             Message: "Hotel booked successfully",
+        }
+    });
+}
+
+export const getHotelBookings = async (
+    req: Request,
+    res: Response<DefaultResponseBody<CreateHotelBookingResponse[]>>
+) => {
+    const userId = req.user?.userId;
+
+    const bookings = await Booking.aggregate([
+        {
+            $match: {
+                $or: [
+                    { userId: { $in: [new Types.ObjectId(userId)] } },
+                    { createdBy: new Types.ObjectId(String(userId)) }
+                ],
+                bookingType: BookingType.Hotel
+            }
+        },
+        {
+            $lookup: {
+                from: 'Hotels',
+                localField: 'bookingDetails.ifHotelBooked.hotelId',
+                foreignField: '_id',
+                as: 'hotel'
+            }
+        },
+        {
+            $unwind: {
+                path: '$hotel',
+                preserveNullAndEmptyArrays: true
+            }
+        },
+    ]);
+
+    if (!bookings) {
+        res.status(404).json({
+            data: null,
+            Status: {
+                Code: 404,
+                Message: "No bookings found",
+            }
+        });
+        return;
+    }
+
+    res.status(200).json({
+        data: bookings,
+        Status: {
+            Code: 200,
+            Message: "Hotel bookings retrieved successfully"
         }
     });
 }

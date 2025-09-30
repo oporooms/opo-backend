@@ -11,9 +11,6 @@ export const getUser = async (
     const { phone, email, status, fullname } = req.query;
     const accessById = req.user?.userId;
 
-
-    console.log("Accessed by ID:", accessById);
-
     const filters: Record<string, unknown> = {};
 
     if (phone) filters.phone = new RegExp(phone as string, "i");
@@ -98,6 +95,45 @@ export const getUsers = async (
     });
 }
 
+export const getUserByCompanyId = async (
+    req: Request<{}, {}, {}, Partial<IUser>>,
+    res: Response<DefaultResponseBody<IUser>>
+) => {
+    const accessById = req.user?.userId;
+
+    if (!accessById) {
+        res.status(401).json({
+            data: null,
+            Status: {
+                Code: 401,
+                Message: "Unauthorized"
+            }
+        });
+        return;
+    }
+
+    const user = await User.findOne({ companyId: new Types.ObjectId(accessById) }).lean();
+
+    if (!user) {
+        res.status(404).json({
+            data: null,
+            Status: {
+                Code: 404,
+                Message: "User not found"
+            }
+        });
+        return;
+    }
+
+    res.status(200).json({
+        data: user,
+        Status: {
+            Code: 200,
+            Message: "User found"
+        }
+    });
+}
+
 export const updateUsers = async (
     req: Request<{}, {}, Partial<IUser>>,
     res: Response<DefaultResponseBody<IUser[]>>
@@ -105,7 +141,7 @@ export const updateUsers = async (
     const { _id, phone, email, status } = req.body;
     const updatedBy = req.user?.userId;
 
-    if(!updatedBy) {
+    if (!updatedBy) {
         res.status(401).json({
             data: null,
             Status: {
@@ -172,6 +208,73 @@ export const updateUsers = async (
         Status: {
             Code: 200,
             Message: "Users updated"
+        }
+    });
+}
+
+export const updateSelfWallet = async (
+    req: Request<{}, {}, { amount: number; operation: 'credit' | 'debit' }>,
+    res: Response<DefaultResponseBody<IUser>>
+) => {
+    const { amount, operation } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+        res.status(401).json({
+            data: null,
+            Status: {
+                Code: 401,
+                Message: "Unauthorized"
+            }
+        });
+        return;
+    }
+
+    if (amount <= 0) {
+        res.status(400).json({
+            data: null,
+            Status: {
+                Code: 400,
+                Message: "Amount must be greater than zero"
+            }
+        });
+        return;
+    }
+
+    const user = await User.findOne({ _id: new Types.ObjectId(userId) });
+
+    if (!user) {
+        res.status(404).json({
+            data: null,
+            Status: {
+                Code: 404,
+                Message: "User not found"
+            }
+        });
+        return;
+    }
+
+    if (user.wallet && operation === 'debit' && user.wallet < amount) {
+        res.status(400).json({
+            data: null,
+            Status: {
+                Code: 400,
+                Message: "Insufficient wallet balance"
+            }
+        });
+        return;
+    }
+
+    const updatedWallet = operation === 'credit' ? (user.wallet || 0) + amount : (user.wallet || 0) - amount;
+    
+    user.wallet = updatedWallet;
+    await user.save();
+
+    res.status(200).json({
+        data: user,
+        Status: {
+            Code: 200,
+            Message: "Wallet updated successfully"
         }
     });
 }

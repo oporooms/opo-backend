@@ -8,6 +8,7 @@ import busRouter from './Bus';
 import bookingRouter from './Booking';
 import paymentRouter from './Payment/index';
 import jwtAuthMiddleware from '@/middleware/session';
+import packageRouter from './Package';
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.use('/hotel', hotelRouter);
 router.use('/bdsdHotel', bdsdHotelRouter);
 router.use('/flight', flightRouter);
 router.use('/bus', busRouter);
+router.use('/package', packageRouter);
 router.use('/room', roomRouter);
 router.use('/user', jwtAuthMiddleware, userRouter);
 router.use('/booking', jwtAuthMiddleware, bookingRouter);

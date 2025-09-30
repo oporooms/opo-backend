@@ -13,6 +13,7 @@ import dayjs from "dayjs";
 import type { Request, Response } from "express";
 import { PipelineStage, Types } from "mongoose";
 import dotenv from "dotenv";
+import { AxiosError } from "axios";
 
 
 if (process.env.NODE_ENV === "production") {
@@ -368,40 +369,45 @@ export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>,
         { $sort: sortFilter }
     );
 
-    try {
-        const hotels = await Hotel.aggregate(pipeline) as IHotel[];
+    const hotels = await Hotel.aggregate(pipeline) as IHotel[];
 
-        const bdsdHotels = cityId ? await axios.post<DefaultResponseBody<HotelListResponse>>(`${process.env.SERVER_URL}/api/v1/bdsdHotel/searchHotel`, {
-            "CheckInDate": dayjs(checkIn).format('YYYY-MM-DD'),
-            "CheckOutDate": dayjs(checkOut).format('YYYY-MM-DD'),
-            "NoOfNights": dayjs(checkOut).diff(dayjs(checkIn), 'days'),
-            "CountryCode": "IN",
-            "DestinationCityId": cityId,
-            "ResultCount": null,
-            "GuestNationality": "IN",
-            "NoOfRooms": rooms,
-            "RoomGuests": [
-                {
-                    "Adult": adults,
-                    "Child": child,
-                    "ChildAge": childAge
-                }
-            ],
-            "MaxRating": maxRating,
-            "MinRating": minRating,
-            "UserIp": "49.36.217.215"
-        }) : { data: { data: null, Status: { Code: 0, Message: 'CityId not provided' } } };
+    const bdsdHotels = cityId ? await axios.post<DefaultResponseBody<HotelListResponse>>(`${process.env.SERVER_URL}/api/v1/bdsdHotel/searchHotel`, {
+        "CheckInDate": dayjs(checkIn).format('YYYY-MM-DD'),
+        "CheckOutDate": dayjs(checkOut).format('YYYY-MM-DD'),
+        "NoOfNights": dayjs(checkOut).diff(dayjs(checkIn), 'days'),
+        "CountryCode": "IN",
+        "DestinationCityId": cityId,
+        "ResultCount": null,
+        "GuestNationality": "IN",
+        "NoOfRooms": rooms,
+        "RoomGuests": [
+            {
+                "Adult": adults,
+                "Child": child,
+                "ChildAge": childAge
+            }
+        ],
+        "MaxRating": maxRating,
+        "MinRating": minRating,
+        "UserIp": "49.36.217.215"
+    }).then(res => res.data).catch(err => {
+        if (err instanceof AxiosError) {
+            res.status(err.response?.status as number).json(err.response?.data as { data: null, Status: { Code: number, Message: string } });
+            return;
+        }
+        res.status(500).json({ data: null, Status: { Code: 500, Message: err.message } });
+    }) : { data: { data: null, Status: { Code: 0, Message: 'CityId not provided' } } };
 
-        res.status(200).json({
-            data: {
-                hotels,
-                bdsdHotels: cityId ? bdsdHotels.data?.data as HotelListResponse | null : null
-            }, Status: { Code: 200, Message: 'Data fetched successfully' }
-        });
-    } catch (error) {
-        console.log({ error })
-        res.status(500).json({ data: null, Status: { Code: 500, Message: (error as Error).message } });
+    if (!hotels && !bdsdHotels) {
+        res.status(404).json({ data: null, Status: { Code: 404, Message: 'No hotels found' } });
     }
+
+    res.status(200).json({
+        data: {
+            hotels,
+            bdsdHotels: cityId ? bdsdHotels?.data as HotelListResponse | null : null
+        }, Status: { Code: 200, Message: 'Data fetched successfully' }
+    });
 };
 
 export const updateHotel = async (
