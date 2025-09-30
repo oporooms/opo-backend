@@ -12,5 +12,5 @@ export interface Passenger {
     IdNumber: string | null;
     Address: string;
     Age: string;
-    Seat: string;
+    SeatName: string;
 }

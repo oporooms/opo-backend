@@ -4,11 +4,8 @@ import { PaymentMode } from "."
 
 export interface Travellers {
     email: string,
-    fullname: string,
     phone: string,
     address: string,
-    dob: Date,
-    gender: string,
     gstDetails?: {
         gstNo?: string,
         gstName?: string,
@@ -18,7 +15,6 @@ export interface Travellers {
             pincode?: string
         }
     },
-    panNo?: string,
 }
 
 export interface CreateBdsdHotelBookingRequest {

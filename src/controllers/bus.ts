@@ -7,7 +7,7 @@ import { BusResponse } from "@/types/Bus/Bus";
 import bdsdApi from "@/functions/bdsdApi";
 import { SeatResponse } from "@/types/Bus/SeatMap";
 import { BoardingPointResponse } from "@/types/Bus/BoardingPoints";
-import { BlockSeat, Passenger } from "@/types/Bus/BlockSeat";
+import { BlockSeat } from "@/types/Bus/BlockSeat";
 import { IGetBookingDetails } from "@/types/Bus/GetBookingDetails";
 import { BookSeatResponse } from "@/types/Bus/BookSeat";
 import { CancelBookingResponse } from "@/types/Bus/CancelBooking";
@@ -16,6 +16,8 @@ import { Types } from "mongoose";
 import { Bookings, BookingStatus, PaymentMode } from "@/types/Bookings";
 import axios from "axios";
 import { removeNoSqlInjection } from "@/functions";
+import { Passenger } from "@/types/Bus/Passenger";
+import { AxiosError } from "axios";
 
 const isDevelopment = false
 
@@ -317,10 +319,12 @@ export const blockBusSeat = async (
         BoardingPointId?: number;
         DroppingPointId?: number;
         Passenger?: Passenger[];
-    }>,
+    }>, 
     res: Response<DefaultResponseBody<BlockSeat>>
 ) => {
     const { SearchTokenId, ResultIndex, BoardingPointId, DroppingPointId, Passenger } = req.body;
+
+    console.log("🚀 ~ file: bus.ts:34 ~ createBusBooking ~ req.body:", req.body);
 
     if (!SearchTokenId) {
         res.status(400).json({
@@ -376,10 +380,12 @@ export const blockBusSeat = async (
         UserIp: "103.209.223.52",
         SearchTokenId,
         ResultIndex,
-        BoardingPointId,
-        DroppingPointId,
+        BoardingPointId: Number(BoardingPointId),
+        DroppingPointId: Number(DroppingPointId),
         Passenger
     };
+
+    console.log("🚀 ~ file: bus.ts:79 ~ createBusBooking ~ params:", params);
 
     try {
         const response = await bdsdApi<typeof params, BlockSeat>(apiEndPoints.blockseat, params);
@@ -393,6 +399,7 @@ export const blockBusSeat = async (
                 }
             });
         } else {
+            console.error("Error blocking bus seat:", response.Error.ErrorMessage);
             res.status(400).json({
                 data: null,
                 Status: {
@@ -402,6 +409,9 @@ export const blockBusSeat = async (
             });
         }
     } catch (error) {
+        if(error instanceof AxiosError){
+            console.error("Axios error in block seat:", error.response?.data?.Status);
+        }
         res.status(500).json({
             data: null,
             Status: {

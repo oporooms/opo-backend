@@ -1,3 +1,4 @@
+import { formatIndianPhoneNumber } from "@/functions";
 import Booking from "@/schemas/Booking";
 import User from "@/schemas/User";
 import { Bookings, BookingStatus, BookingType, CompanyApproval, PaymentMode, PaymentStatus } from "@/types/Bookings";
@@ -23,6 +24,8 @@ export const createBusBooking = async (
 ) => {
     const { travellers, otherDetails, userId, createdBy, paymentMode, price, ResultIndex, SearchTokenId, BoardingPointId, DroppingPointId, Seats } = req.body;
 
+    console.log("🚀 ~ file: bus.ts:34 ~ createBusBooking ~ req.body:", req.body)
+
     let blockBusSeat = await axios.post<DefaultResponseBody<BlockSeat>>(
         `${process.env.SERVER_URL}/api/v1/bus/blockBusSeat`,
         {
@@ -31,20 +34,37 @@ export const createBusBooking = async (
             BoardingPointId,
             DroppingPointId,
             Passenger: travellers?.map((t, i) => ({
-                ...t,
-                Seat: Seats[i],
+                LeadPassenger: t.LeadPassenger,
+                Title: t.Title,
+                FirstName: t.FirstName,
+                LastName: t.LastName,
+                Email: t.Email,
+                Phoneno: formatIndianPhoneNumber(t.Phoneno).cleanedPhone,
+                Gender: t.Gender,
+                IdType: t.IdType,
+                IdNumber: t.IdNumber,
+                Address: t.Address,
+                Age: t.Age,
+                SeatName: Seats?.[0].split(',')[i] || '',
             })),
         }
-    ).then(response => response.data)
+    ).then(response => {
+        console.log("🚀 ~ file: bus.ts:79 ~ createBusBooking ~ response:", response.data)
+            return response.data;
+    })
         .catch(error => {
+            console.error("Error blocking bus seat:", error);
             res.status(500).json({ data: null, Status: { Code: 500, Message: "Failed to fetch fare and seat details" } });
             return null;
         });
 
     if (!blockBusSeat || blockBusSeat.Status.Code !== 200) {
+        console.error("Error blocking bus seat:", blockBusSeat);
         res.status(500).json({ data: null, Status: { Code: 500, Message: "Failed to block bus seat" } });
         return;
     }
+
+    console.log("🚀 ~ file: bus.ts:79 ~ createBusBooking ~ blockBusSeat:", blockBusSeat)
 
     const user = await User.findOne({ _id: new Types.ObjectId(req.user?.userId) });
     const createdById = await User.findOne({ _id: new Types.ObjectId(req.user?.userId) });
@@ -83,7 +103,7 @@ export const createBusBooking = async (
             ifBusBooked: {
                 travellers: travellers?.map((t, i) => ({
                     ...t,
-                    Seat: Seats[i],
+                    SeatName: Seats[i],
                 })),
                 blockSeat: blockBusSeat.data as BlockSeat,
                 boardingPointId: BoardingPointId,

@@ -31,6 +31,8 @@ const bdsdApi = async <Params, Response, Error = Response>(
   url: string,
   data: Params
 ) => {
+  console.log("username", process.env.BDSD_USERNAME)
+  console.log("password", process.env.BDSD_PASSWORD)
   try {
     const response = await axiosClient.post(url, data, {
       headers: {

@@ -6,6 +6,6 @@ const bdsdHotelRouter = Router();
 bdsdHotelRouter.post('/searchHotel', searchHotel)
 bdsdHotelRouter.get('/hotelInfo', hotelInfo)
 bdsdHotelRouter.get('/hotelRoom', hotelRoom)
-bdsdHotelRouter.get('/blockRoom', blockRoom)
+bdsdHotelRouter.post('/blockRoom', blockRoom)
 
 export default bdsdHotelRouter;

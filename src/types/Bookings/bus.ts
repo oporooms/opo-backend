@@ -1,7 +1,7 @@
 import { Orders } from "razorpay/dist/types/orders"
 import { IUser } from "../user"
-import { Passenger } from "../Bus/Passenger"
 import { PaymentMode } from "."
+import { Passenger } from "../Bus/BlockSeat"
 
 export interface CreateBusBookingRequest {
     travellers: Passenger[],

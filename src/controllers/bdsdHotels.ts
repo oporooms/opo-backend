@@ -6,6 +6,7 @@ import { SearchProps } from "@/types/BdsdHotel/SearchProps";
 import { HotelListResponse } from "@/types/BdsdHotel/HotelList";
 import { HotelInfoResponse } from "@/types/BdsdHotel/HotelInfo";
 import { HotelRoomResponse } from "@/types/BdsdHotel/HotelRoom";
+import { BlockRoomResponse } from "@/types/BdsdHotel/BlockRoom";
 
 const isDevelopment = false
 
@@ -330,9 +331,11 @@ export const blockRoom = async (
         HotelRoomsDetails: { RoomIndex: number }[];
         SearchTokenId: string;
     }>,
-    res: Response<DefaultResponseBody<HotelRoomResponse>>
+    res: Response<DefaultResponseBody<BlockRoomResponse>>
 ) => {
     const { UserIp, ResultIndex, HotelCode, HotelName, NoOfRooms, HotelRoomsDetails, SearchTokenId } = req.body
+
+    console.log('Block Room Request Body:', req.body);
 
     if (ResultIndex === undefined || ResultIndex === null || String(ResultIndex).trim() === '') {
         res.status(400).json({
@@ -366,9 +369,14 @@ export const blockRoom = async (
         SearchTokenId: String(SearchTokenId)
     }
 
-    const response = await bdsdApi<typeof data, HotelRoomResponse>(apiEndPoints.blockroom, data)
+    console.log('Final Block Room Data:', data)
+
+    const response = await bdsdApi<typeof data, BlockRoomResponse>(apiEndPoints.blockroom, data)
+
+    console.log('Block Room Response:', response);
 
     if (response.Error.ErrorMessage !== '') {
+        console.log('Block Room Error Response:', response);
         res.status(500).json({
             data: response,
             Status: { Code: response.Error.ErrorCode, Message: response.Error.ErrorMessage }
