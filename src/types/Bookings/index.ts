@@ -6,6 +6,7 @@ import { Passenger } from "../Bus/Passenger";
 import { BlockSeat } from "../Bus/BlockSeat";
 import { IGetBookingDetails } from "../Bus/GetBookingDetails";
 import { Types } from "mongoose";
+import { BlockRoomResponse } from "../BdsdHotel/BlockRoom";
 
 
 export enum BookingStatus {
@@ -200,6 +201,10 @@ interface OutSideHotelDetails {
     rooms: number,
 }
 
+interface BdsdHotelDetails {
+    blockHotel: BlockRoomResponse
+}
+
 export interface Bookings {
     userId: Types.ObjectId[],
     bookingId?: string,
@@ -208,6 +213,7 @@ export interface Bookings {
     bookingDetails: {
         companyApproval: CompanyApproval,
         ifHotelBooked?: HotelDetails,
+        ifBdsdHotelBooked?: BdsdHotelDetails,
         ifFlightBooked?: FlightDetails,
         ifBusBooked?: BusDetails,
         ifTrainBooked?: TrainDetails,
