@@ -1,12 +1,11 @@
 import { getUser, getUserByCompanyId, updateSelfWallet, updateUsers } from "@/controllers/user";
-import jwtAuthMiddleware from "@/middleware/session";
 import { Router } from "express";
 
 const userRouter = Router()
 
-userRouter.get("/", jwtAuthMiddleware, getUser)
-userRouter.get("/getUserByCompanyId", jwtAuthMiddleware, getUserByCompanyId)
-userRouter.put("/", jwtAuthMiddleware, updateUsers)
-userRouter.put("/updateSelfWallet", jwtAuthMiddleware, updateSelfWallet)
+userRouter.get("/", getUser)
+userRouter.get("/getUserByCompanyId", getUserByCompanyId)
+userRouter.put("/", updateUsers)
+userRouter.put("/updateSelfWallet", updateSelfWallet)
 
 export default userRouter

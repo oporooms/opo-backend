@@ -216,7 +216,7 @@ export const createHotelBooking = async (
 
 export const getHotelBookings = async (
     req: Request,
-    res: Response<DefaultResponseBody<CreateHotelBookingResponse[]>>
+    res: Response<DefaultResponseBody<Bookings[]>>
 ) => {
     const userId = req.user?.userId;
 

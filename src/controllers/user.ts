@@ -96,10 +96,23 @@ export const getUsers = async (
 }
 
 export const getUserByCompanyId = async (
-    req: Request<{}, {}, {}, Partial<IUser>>,
-    res: Response<DefaultResponseBody<IUser>>
+    req: Request<any, any, any , Partial<IUser>>,
+    res: Response<DefaultResponseBody<IUser[]>>
 ) => {
+    const query = req.query;
+    const filter: Record<string, unknown> = {}
+
+    if(query.fullname) filter['fullname'] = new RegExp(query.fullname as string, "i");
+    if(query.email) filter['email'] = new RegExp(query.email as string, "i");
+    if(query.phone) filter['phone'] = new RegExp(query.phone as string, "i");
+    if(query.status) filter['status'] = query.status;
+
+    console.log("Query parameters:", query);
+    console.log("Filter constructed:", filter);
+
     const accessById = req.user?.userId;
+
+    console.log("AccessById:", accessById);
 
     if (!accessById) {
         res.status(401).json({
@@ -112,7 +125,12 @@ export const getUserByCompanyId = async (
         return;
     }
 
-    const user = await User.findOne({ companyId: new Types.ObjectId(accessById) }).lean();
+    const user = await User.find({ 
+        companyId: new Types.ObjectId(accessById) ,
+        ...filter
+    }).lean();
+
+    console.log("User found:", user);
 
     if (!user) {
         res.status(404).json({

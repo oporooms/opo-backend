@@ -15,7 +15,7 @@ bookingRouter.post("/hotel", jwtAuthMiddleware, createHotelBooking)
 bookingRouter.post("/flight", jwtAuthMiddleware, createFlightBooking)
 bookingRouter.post("/bus", jwtAuthMiddleware, createBusBooking)
 
-bookingRouter.put("/updateBookingStatus", jwtAuthMiddleware, updateBookingStatus)
-bookingRouter.put("/updateCompanyApproval", jwtAuthMiddleware, updateCompanyApproval)
+// bookingRouter.put("/updateBookingStatus", jwtAuthMiddleware, updateBookingStatus)
+// bookingRouter.put("/updateCompanyApproval", jwtAuthMiddleware, updateCompanyApproval)
 
 export default bookingRouter;
