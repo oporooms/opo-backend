@@ -23,4 +23,4 @@ const packageSchema = new Schema<Package>(
     },
 )
 
-export default mongoose.model<Package>("Package", packageSchema, "Packages")
+export default mongoose.model<Package>("Package", packageSchema, "Package")

@@ -1,6 +1,6 @@
 import Package from "@/schemas/Package";
 import { DefaultResponseBody } from "@/types/default";
-import { Package as PackageType, PackageRequestQuery } from "@/types/Package";
+import { Package as PackageType, PackageRequestQuery, PackageStatus } from "@/types/Package";
 import { Request, Response } from "express";
 
 export const getPackages = async (
@@ -52,10 +52,17 @@ export const getPackages = async (
     const limitNumber = limit ? Math.max(1, parseInt(limit, 10)) : 20;
     const skip = (pageNumber - 1) * limitNumber;
 
-    const data = await Package.find(filter)
+
+    const data = await Package.find({
+        ...filter,
+        status: PackageStatus.ACTIVE
+    })
         .skip(skip)
         .limit(limitNumber)
         .lean();
+
+    console.log("Filter applied:", filter);
+    console.log("data", data);
 
     if (!data) {
         res.status(404).json({

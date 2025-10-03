@@ -95,17 +95,54 @@ export const getUsers = async (
     });
 }
 
+export const createUser = async (
+    req: Request<{}, {}, Partial<IUser>>,
+    res: Response<DefaultResponseBody<IUser>>
+) => {
+    const { fullname, email, phone, gstDetails } = req.body;
+    const createdBy = req.user?.userId;
+
+    if (!createdBy) {
+        res.status(401).json({
+            data: null,
+            Status: {
+                Code: 401,
+                Message: "Unauthorized"
+            }
+        });
+        return;
+    }
+
+    const newUser = new User({
+        fullname,
+        email,
+        phone,
+        gstDetails,
+        createdBy
+    });
+
+    await newUser.save();
+
+    res.status(201).json({
+        data: newUser,
+        Status: {
+            Code: 201,
+            Message: "User created successfully"
+        }
+    });
+}
+
 export const getUserByCompanyId = async (
-    req: Request<any, any, any , Partial<IUser>>,
+    req: Request<any, any, any, Partial<IUser>>,
     res: Response<DefaultResponseBody<IUser[]>>
 ) => {
     const query = req.query;
     const filter: Record<string, unknown> = {}
 
-    if(query.fullname) filter['fullname'] = new RegExp(query.fullname as string, "i");
-    if(query.email) filter['email'] = new RegExp(query.email as string, "i");
-    if(query.phone) filter['phone'] = new RegExp(query.phone as string, "i");
-    if(query.status) filter['status'] = query.status;
+    if (query.fullname) filter['fullname'] = new RegExp(query.fullname as string, "i");
+    if (query.email) filter['email'] = new RegExp(query.email as string, "i");
+    if (query.phone) filter['phone'] = new RegExp(query.phone as string, "i");
+    if (query.status) filter['status'] = query.status;
 
     console.log("Query parameters:", query);
     console.log("Filter constructed:", filter);
@@ -125,8 +162,8 @@ export const getUserByCompanyId = async (
         return;
     }
 
-    const user = await User.find({ 
-        companyId: new Types.ObjectId(accessById) ,
+    const user = await User.find({
+        companyId: new Types.ObjectId(accessById),
         ...filter
     }).lean();
 
@@ -284,7 +321,7 @@ export const updateSelfWallet = async (
     }
 
     const updatedWallet = operation === 'credit' ? (user.wallet || 0) + amount : (user.wallet || 0) - amount;
-    
+
     user.wallet = updatedWallet;
     await user.save();
 

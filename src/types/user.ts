@@ -1,4 +1,5 @@
 import { ObjectId } from "mongoose";
+import { GSTDetails, PanDetails, PassportDetails } from ".";
 
 export enum UserRole {
     SADMIN = "SADMIN",
@@ -30,27 +31,15 @@ export interface IUser {
     phone: string;
     wallet?: number;
     status: UserStatus;
-    gstDetails?: {
-        gstNo: string;
-        gstName: string;
-        gstAddress: {
-            address: string;
-            state: string;
-            pincode: string;
-        };
-    };
+    gstDetails?: GSTDetails;
     address?: string;
     dob?: Date;
     gender?: string;
     createdBy?: UserRole;
     companyId?: string | null;
     hrId?: string | null;
-    passportDetails?: {
-        passportNo: string;
-        passportExpiry: string;
-        passportIssue: string;
-    };
-    panNo?: string;
+    passportDetails?: PassportDetails;
+    panNo?: PanDetails;
     createdAt?: Date;
     updatedAt?: Date;
     token?: string;

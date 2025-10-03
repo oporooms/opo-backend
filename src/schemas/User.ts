@@ -1,6 +1,7 @@
 import mongoose, { Schema, Types } from "mongoose";
 import { formatIndianPhoneNumber } from "../functions";
 import { IUser, UserRole, UserStatus } from "@/types/user";
+import { GSTDetailsSchema } from ".";
 const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const UserSchema = new Schema<IUser>({
@@ -44,15 +45,7 @@ const UserSchema = new Schema<IUser>({
     enum: Object.values(UserStatus),
     default: UserStatus.APPROVED,
   },
-  gstDetails: {
-    gstNo: { type: String, default: "" },
-    gstName: { type: String, default: "" },
-    gstAddress: {
-      address: { type: String, default: "" },
-      state: { type: String, default: "" },
-      pincode: { type: String, default: "" },
-    },
-  },
+  gstDetails: GSTDetailsSchema,
   address: { type: String, default: "" },
   dob: { type: Date, default: null },
   gender: { type: String, default: "" },
