@@ -1,44 +1,92 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
+import {
+  TransactionDocument,
+  TransactionMode,
+  TransactionStatus,
+  TransactionType,
+} from "@/types/transaction";
 
-const transactionSchema = new mongoose.Schema({
-  _id: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
+const transactionSchema = new Schema<TransactionDocument>(
+  {
+    bookingId: {
+      type: Schema.Types.ObjectId,
+      ref: "Booking",
+      required: true,
+      index: true,
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    currency: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+      default: "INR",
+    },
+    mode: {
+      type: String,
+      required: true,
+      enum: Object.values(TransactionMode),
+    },
+    status: {
+      type: String,
+      required: true,
+      enum: Object.values(TransactionStatus),
+      default: TransactionStatus.PENDING,
+      index: true,
+    },
+    transactionDate: {
+      type: Date,
+      required: true,
+      default: Date.now,
+    },
+    payerId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    receiverId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    type: {
+      type: String,
+      enum: [...Object.values(TransactionType), null],
+      default: null,
+    },
+    reference: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    failureReason: {
+      type: String,
+      trim: true,
+    },
+    gatewayResponse: {
+      type: Schema.Types.Mixed,
+    },
+    metadata: {
+      type: Schema.Types.Map,
+      of: Schema.Types.Mixed,
+    },
   },
-  amount: {
-    type: Number,
-    required: true,
-  },
-  bookingId: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-  },
-  createdAt: {
-    type: Date,
-    required: true,
-  },
-  mode: {
-    type: String,
-    required: true,
-  },
-  payer_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-  },
-  receiver_id: {
-    type: mongoose.Schema.Types.Mixed, // Can be ObjectId or String
-  },
-  status: {
-    type: String,
-    required: true,
-  },
-  transactionDate: {
-    type: Date,
-    required: true,
-  },
-  type: {
-    type: mongoose.Schema.Types.Mixed, // Null type
-  },
-});
+  {
+    timestamps: true,
+    versionKey: false,
+  }
+);
 
-export default mongoose.model("Transaction", transactionSchema);
+transactionSchema.index({ bookingId: 1, transactionDate: -1 });
+transactionSchema.index({ payerId: 1, transactionDate: -1 });
+
+export default mongoose.model<TransactionDocument>("Transaction", transactionSchema, "Transaction");

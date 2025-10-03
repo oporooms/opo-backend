@@ -95,3 +95,41 @@ export const verifyOrder = (req: Request, res: Response<DefaultResponseBody<bool
         }
     });
 };
+
+export const updatePaymentDetails = async (req: Request, res: Response<DefaultResponseBody<string>>) => {
+    const { orderId, paymentId, status } = req.body;
+
+    if (!orderId || !paymentId || !status) {
+        res.status(400).json({
+            data: "Bad Request: orderId, paymentId, and status are required",
+            Status: {
+                Code: 400,
+                Message: "Bad Request: orderId, paymentId, and status are required",
+            }
+        });
+        return;
+    }
+
+    try {
+        // Update payment details in your database or payment provider
+        // This is a placeholder for your update logic
+        console.log("Updating payment details:", { orderId, paymentId, status });
+
+        res.status(200).json({
+            data: "Payment details updated successfully",
+            Status: {
+                Code: 200,
+                Message: "Payment details updated successfully",
+            }
+        });
+    } catch (error) {
+        console.error("Error updating payment details:", error);
+        res.status(500).json({
+            data: null,
+            Status: {
+                Code: 500,
+                Message: "Internal Server Error",
+            }
+        });
+    }
+};

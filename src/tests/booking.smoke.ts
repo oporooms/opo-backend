@@ -10,6 +10,7 @@ async function run() {
     const doc = await Booking.create({
       bookingType: 'hotel',
       bookingDate: new Date(),
+      status: 'pending',
       createdBy: new mongoose.Types.ObjectId(),
       payment: { cost: 1000, fee: 0, mode: 'upi', status: 'paid', total: 1000, transactionDetails: { id: 'tx_1' } },
       userId: [new mongoose.Types.ObjectId()],
@@ -20,10 +21,10 @@ async function run() {
           assignedRooms: null,
           checkIn: new Date(),
           checkOut: new Date(Date.now() + 86400000),
-          guests: { adults: 1, childrens: 0 },
+          adults: 1,
+          childrens: 0,
           hotelGuests: [{ fullname: 'Test User' }],
           hotelId: new mongoose.Types.ObjectId(),
-          hotelOwnerId: new mongoose.Types.ObjectId(),
           rooms: 1,
           roomType: 'Deluxe',
           totalDays: 1

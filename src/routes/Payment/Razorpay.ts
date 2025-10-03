@@ -5,5 +5,6 @@ const razorpayPaymentRouter = Router();
 
 razorpayPaymentRouter.post('/createOrder', createOrder)
 razorpayPaymentRouter.post('/verifyOrder', verifyOrder)
+razorpayPaymentRouter.post('/updatePayment', verifyOrder)
 
 export default razorpayPaymentRouter;
