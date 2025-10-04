@@ -6,6 +6,7 @@ import { connectDB } from "@/config/mongo";
 import mainRoutes from "@/routes/mainRoutes";
 import authRoutes from "@/routes/authRoutes";
 import { slowDown } from 'express-slow-down'
+import adminRouter from './routes/Admin';
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -122,6 +123,7 @@ const limiter = slowDown({
 
 app.use("/auth", limiter, authRoutes);
 app.use("/api/v1", limiter, mainRoutes);
+app.use("/api/v1/admin", limiter, adminRouter);
 
 
 const MONGO_URI = process.env.MONGO_URI || "";
