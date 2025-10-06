@@ -256,10 +256,9 @@ export const updateUsers = async (
         return;
     }
 
-    const users = await User.find(filters);
 
     res.status(200).json({
-        data: users,
+        data: null,
         Status: {
             Code: 200,
             Message: "Users updated"
