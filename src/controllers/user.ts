@@ -1,3 +1,4 @@
+import Transaction from "@/schemas/Transaction";
 import User from "@/schemas/User";
 import { DefaultResponseBody } from "@/types/default";
 import { IUser, UserRole } from "@/types/user";
@@ -322,6 +323,13 @@ export const updateSelfWallet = async (
     const updatedWallet = operation === 'credit' ? (user.wallet || 0) + amount : (user.wallet || 0) - amount;
 
     user.wallet = updatedWallet;
+
+    const transaction = await Transaction.create({
+        userId: user._id,
+        amount,
+        operation
+    });
+
     await user.save();
 
     res.status(200).json({

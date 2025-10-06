@@ -263,6 +263,28 @@ export const searchFlight = async (
 
     try {
         const response = await bdsdApi<typeof data, FlightData>(apiEndPoints.search, data)
+
+        // const updatedResponse = {
+        //     ...response,
+        //     Result: response.Result?.map((item) => {
+        //         return item.map((item1) => {
+        //             item1.FareList?.map(it => {
+        //                 const multiplier = 0.85;
+        //                 it.Fare.BaseFare = Number((Number(it.Fare.BaseFare) * multiplier).toFixed(2));
+        //                 it.Fare.OfferedPrice = Number((Number(it.Fare.OfferedPrice) * multiplier).toFixed(2));
+        //                 it.PublishedPrice = Number((Number(it.PublishedPrice) * multiplier).toFixed(2));
+        //                 it.OfferedPrice = Number((Number(it.OfferedPrice) * multiplier).toFixed(2));
+        //                 it.Fare.PublishedPrice = Number((Number(it.Fare.PublishedPrice) * multiplier).toFixed(2));
+
+        //                 return it
+        //             })
+        //             item1.MinPublishedPrice = Number((Number(item1.MinPublishedPrice) * 0.85).toFixed(2));
+        //             return item1;
+        //         });
+        //     })
+        // } as FlightData
+
+
         if (response.Error.ErrorMessage.trim() == '') {
             res.status(200).json({
                 data: response,
@@ -403,6 +425,20 @@ export const getConfirmationFare = async (
 
     try {
         const response = await bdsdApi<typeof data, FareConfirmation>(apiEndPoints.fareConfirmation, data);
+
+        // const updatedResponse = {
+        //     ...response,
+        //     Result: {
+        //         ...response?.Result,
+        //         Fare: {
+        //             ...response?.Result.Fare,
+        //             BaseFare: Number((Number(response?.Result.Fare.BaseFare) * 0.85).toFixed(2)),
+        //             OfferedPrice: Number((Number(response?.Result.Fare.OfferedPrice) * 0.85).toFixed(2)),
+        //             PublishedPrice: Number((Number(response?.Result.Fare.PublishedPrice) * 0.85).toFixed(2)),
+        //             Tax: Number((Number(response?.Result.Fare.Tax) * 0.85).toFixed(2)),
+        //         },
+        //     },
+        // } as FareConfirmation
 
         if (response.Error.ErrorMessage.trim() === '') {
             res.status(200).json({

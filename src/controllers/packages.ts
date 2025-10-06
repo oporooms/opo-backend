@@ -78,6 +78,28 @@ export const getPackages = async (
     });
 }
 
+export const getPackage = async (
+    req: Request<{ id: string }>,
+    res: Response<DefaultResponseBody<PackageType>>
+) => {
+    const { id } = req.params;
+
+    const packageResult = await Package.findById(id).lean();
+
+    if (!packageResult) {
+        res.status(404).json({
+            data: null,
+            Status: { Code: 404, Message: "Package not found." }
+        });
+        return;
+    }
+
+    res.status(200).json({
+        data: packageResult,
+        Status: { Code: 200, Message: "Package fetched successfully." }
+    });
+}
+
 export const createPackage = async (
     req: Request<any, any, PackageType>,
     res: Response<DefaultResponseBody<PackageType>>
