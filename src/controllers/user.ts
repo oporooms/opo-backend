@@ -231,7 +231,7 @@ export const updateUsers = async (
     const isSuperAdmin = superadmins.some(i => i._id?.toString() === updatedBy);
     if (isSuperAdmin) {
         // If the user is a super admin, allow the update
-        await User.updateMany(filters, { $set: req.body });
+        await User.updateOne(filters, { $set: req.body });
     } else if (self?._id?.toString() === updatedBy) {
         // Disallow non-super admins from changing the userRole
         if (Object.prototype.hasOwnProperty.call(req.body, "userRole") || Object.prototype.hasOwnProperty.call(req.body, "userStatus") || Object.prototype.hasOwnProperty.call(req.body, "wallet")) {

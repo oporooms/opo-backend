@@ -265,7 +265,7 @@ export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>,
     hotels: IHotel[],
     bdsdHotels: HotelListResponse | null
 }>>): Promise<void> => {
-    const { userId, name, nameNot, checkIn, checkOut, cityId, rooms, adults, child, childAge, customAddress, desc, city, locality, lat, lng, placeId, regularPrice, salePrice, minPrice, maxPrice, minRating, maxRating, amenities, sort, skip = '0', limit = '10', nextId } = req.body;
+    const { userId, name, nameNot, checkIn, checkOut, cityId, rooms, adults, child, childAge, customAddress, desc, city, locality, lat, lng, placeId, regularPrice, salePrice, minPrice, maxPrice, minRating, maxRating, amenities, sort, skip = '0', limit = '100', nextId } = req.body;
 
     const filters: Record<string, unknown> = {};
     const sortFilter: Record<string, 1 | -1> = {};
@@ -358,18 +358,20 @@ export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>,
     }
 
     pipeline.push(
-        { $lookup: { from: 'Users', localField: 'hotelOwnerId', foreignField: '_id', as: 'hotelOwner' } },
-        { $lookup: { from: 'Rooms', localField: '_id', foreignField: 'hotelId', as: 'Rooms' } },
-        { $lookup: { from: 'Ratings', localField: '_id', foreignField: 'hotelId', as: 'Ratings' } },
-        { $lookup: { from: 'Bookings', localField: '_id', foreignField: 'bookingDetails.ifHotelBooked.hotelId', as: 'Bookings' } },
-        { $unwind: { path: "$hotelOwner", preserveNullAndEmptyArrays: true } },
+        // { $lookup: { from: 'Users', localField: 'hotelOwnerId', foreignField: '_id', as: 'hotelOwner' } },
+        // { $lookup: { from: 'Rooms', localField: '_id', foreignField: 'hotelId', as: 'Rooms' } },
+        // { $lookup: { from: 'Ratings', localField: '_id', foreignField: 'hotelId', as: 'Ratings' } },
+        // { $lookup: { from: 'Bookings', localField: '_id', foreignField: 'bookingDetails.ifHotelBooked.hotelId', as: 'Bookings' } },
+        // { $unwind: { path: "$hotelOwner", preserveNullAndEmptyArrays: true } },
         { $match: { status: HotelStatus.APPROVED, ...filters } },
-        { $skip: parseInt(skip) },
-        { $limit: Math.min(parseInt(limit), 100) },
+        { $skip: Number(skip) },
+        { $limit: Number(limit) },
         { $sort: sortFilter }
     );
 
     const hotels = await Hotel.aggregate(pipeline) as IHotel[];
+
+    console.log({hotels})
 
     const bdsdHotels = cityId ? await axios.post<DefaultResponseBody<HotelListResponse>>(`${process.env.SERVER_URL}/api/v1/bdsdHotel/searchHotel`, {
         "CheckInDate": dayjs(checkIn).format('YYYY-MM-DD'),

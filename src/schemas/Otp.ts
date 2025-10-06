@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface IOtp extends Document {
   phone: string;
+  email?: string;
   otp: string;
   expiresAt: Date;
   createdAt: Date;
@@ -12,6 +13,7 @@ export interface IOtp extends Document {
 
 const OtpSchema = new Schema<IOtp>({
   phone: { type: String, required: true },
+  email: { type: String, required: false },
   otp: { type: String, required: true },
   expiresAt: { type: Date, default: Date.now, expires: 3600 }, // TTL index: expires after 1 hour
   createdAt: { type: Date, default: Date.now },
