@@ -53,7 +53,8 @@ const allowedOrigins = [
   "https://oporooms.com",
   "https://opo-frontend-lilac.vercel.app",
   "com.oporooms",
-  "https://loomstay.in"
+  "https://loomstay.in",
+  "https://www.loomstay.in",
 ];
 
 const allowedOriginSet = new Set<string>([...allowedOrigins]);
@@ -78,6 +79,10 @@ const isOriginAllowed = (origin?: string): boolean => {
 
     // Optionally allow oporooms.com and its subdomains
     if (u.hostname === "oporooms.com" || u.hostname.endsWith(".oporooms.com")) {
+      return isProd ? u.protocol === "https:" : true;
+    }
+
+    if (u.hostname === "loomstay.in" || u.hostname.endsWith(".loomstay.in")) {
       return isProd ? u.protocol === "https:" : true;
     }
 
