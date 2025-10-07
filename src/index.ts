@@ -52,7 +52,8 @@ const allowedOrigins = [
   // "http://localhost:3001",
   "https://oporooms.com",
   "https://opo-frontend-lilac.vercel.app",
-  "com.oporooms"
+  "com.oporooms",
+  "https://loomstay.in"
 ];
 
 const allowedOriginSet = new Set<string>([...allowedOrigins]);
