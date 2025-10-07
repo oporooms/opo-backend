@@ -317,14 +317,14 @@ export const searchFlight = async (
 }
 
 export const getFareRules = async (
-    req: Request<{
+    req: Request<any, any, any, {
         fareId: string,
         SearchTokenId: string
     }>,
     res: Response<DefaultResponseBody<FareRules>>
 ) => {
 
-    const searchParams = req.params;
+    const searchParams = req.query;
 
     switch (true) {
         case !searchParams.fareId:
