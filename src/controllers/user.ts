@@ -210,10 +210,21 @@ export const updateUsers = async (
 
     const filters: Record<string, unknown> = {};
 
+    if(_id && !Types.ObjectId.isValid(_id as string)) {
+        res.status(400).json({
+            data: null,
+            Status: {   
+                Code: 400,
+                Message: "Invalid user ID format."
+            }
+        });
+        return;
+    }
     if (_id) filters._id = new Types.ObjectId(_id as string);
     if (phone) filters.phone = new RegExp(phone as string, "i");
     if (email) filters.email = new RegExp(email as string, "i");
     if (status) filters.status = status;
+
 
     const superadmins = await User.find({ userRole: UserRole.SADMIN });
     const self = await User.findOne({ _id: new Types.ObjectId(updatedBy) });
