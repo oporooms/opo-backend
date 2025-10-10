@@ -20,7 +20,7 @@ concurrency:
 jobs:
   quality:
     name: Quality checks (Node ${{ matrix.node }})
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
@@ -61,7 +61,7 @@ jobs:
 
   docker:
     name: Build Docker image
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: quality
     steps:
       - name: Checkout repository
