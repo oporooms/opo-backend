@@ -20,6 +20,7 @@ RUN npm run build
 # 4) Production runner (only production dependencies)
 FROM base AS runner
 ENV NODE_ENV=production
+ENV PORT=8000
 
 # Install only production deps
 COPY package*.json ./
