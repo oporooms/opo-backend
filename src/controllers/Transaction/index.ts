@@ -192,14 +192,19 @@ export const listTransactions = async (
     const skip = (pageNumber - 1) * limitNumber;
 
     try {
-        const [transactions, total] = await Promise.all([
-            Transaction.find(filter)
-                .sort({ transactionDate: -1 })
-                .skip(skip)
-                .limit(limitNumber)
-                .lean(),
-            Transaction.countDocuments(filter),
-        ]);
+        const transactions = await Transaction.find(filter)
+            .sort({ transactionDate: -1 })
+            .skip(skip)
+            .limit(limitNumber)
+        const total = await Transaction.countDocuments(filter);
+
+        if (!transactions.length || !transactions) {
+            res.status(200).json({
+                data: [],
+                Status: { Code: 200, Message: "No transactions found on this page." },
+            });
+            return;
+        }
 
         res.setHeader("X-Total-Count", total.toString());
         res.status(200).json({
@@ -207,8 +212,13 @@ export const listTransactions = async (
             Status: { Code: 200, Message: "Transactions fetched successfully." },
         });
     } catch (error: any) {
-        const message = error?.message || "Unable to fetch transactions.";
-        respondWithError(res, 500, message);
+        res.status(500).json({
+            data: null,
+            Status: {
+                Code: 500,
+                Message: error?.message || "Unable to fetch transactions.",
+            },
+        });
     }
 };
 
@@ -232,7 +242,7 @@ export const getTransactionById = async (
                 { payerId: participantObjectId },
                 { receiverId: participantObjectId },
             ],
-        }).lean();
+        })
 
         if (!transaction) {
             respondWithError(res, 404, "Transaction not found.");
