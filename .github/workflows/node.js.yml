@@ -77,8 +77,8 @@ jobs:
       - name: Show container logs
         if: always()
         run: sudo docker logs opo-backend-${{ github.sha }} || true
-      - name: Stop container
-        if: always()
-        run: |
-          sudo docker stop opo-backend-${{ github.sha }} || true
-          sudo docker rm opo-backend-${{ github.sha }} || true
+      # - name: Stop container
+      #   if: always()
+      #   run: |
+      #     sudo docker stop opo-backend-${{ github.sha }} || true
+      #     sudo docker rm opo-backend-${{ github.sha }} || true
