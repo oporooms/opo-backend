@@ -44,7 +44,7 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // CORS configuration
 const allowedOrigins = [
@@ -134,6 +134,6 @@ app.use("/api/v1/admin", limiter, adminRouter);
 
 const MONGO_URI = process.env.MONGO_URI || "";
 connectDB(MONGO_URI);
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
