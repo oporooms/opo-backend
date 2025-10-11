@@ -57,37 +57,58 @@ const allowedOrigins = [
   "https://www.loomstay.in",
 ];
 
+// Keep full-origin strings for exact matches, and also derive hostnames so
+// we can allow the same host over http or https when explicitly whitelisted.
 const allowedOriginSet = new Set<string>([...allowedOrigins]);
+const allowedHostSet = new Set<string>();
+for (const o of allowedOrigins) {
+  try {
+    // If the allowed origin is just a hostname (no protocol), assume https during parse
+    const u = new URL(o.includes('://') ? o : `https://${o}`);
+    allowedHostSet.add(u.host); // includes port if present
+    allowedHostSet.add(u.hostname);
+  } catch {
+    // If parsing fails, store raw string as a hostname fallback
+    allowedHostSet.add(o);
+  }
+}
 const isProd = process.env.NODE_ENV === "production";
 
 const isOriginAllowed = (origin?: string): boolean => {
   if (!origin) return true;
+  // Exact origin match (includes protocol + host)
   if (allowedOriginSet.has(origin)) return true;
 
   try {
     const u = new URL(origin);
+
+    // Allow if the host (or hostname) is explicitly whitelisted. This lets us
+    // accept the same site over http OR https when it's in the allow-list.
+    if (allowedHostSet.has(u.host) || allowedHostSet.has(u.hostname)) return true;
+
+    // Also allow normalized proto+host if the allowed list contained it in a different form
+    const normalized = `${u.protocol}//${u.host}`;
+    if (allowedOriginSet.has(normalized)) return true;
+
     const isLocal =
       u.hostname === "localhost" ||
       u.hostname === "127.0.0.1" ||
       u.hostname === "[::1]";
 
-    // In production, require HTTPS for non-local origins
-    if (isProd && !isLocal && u.protocol !== "https:") return false;
+    // In development, allow any localhost port
+    if (!isProd && isLocal) return true;
 
-    const normalized = `${u.protocol}//${u.host}`;
-    if (allowedOriginSet.has(normalized)) return true;
-
-    // Optionally allow oporooms.com and its subdomains
+    // Special-case common domains and their subdomains (allow both http/https if explicitly desired)
     if (u.hostname === "oporooms.com" || u.hostname.endsWith(".oporooms.com")) {
-      return isProd ? u.protocol === "https:" : true;
+      return true;
     }
 
     if (u.hostname === "loomstay.in" || u.hostname.endsWith(".loomstay.in")) {
-      return isProd ? u.protocol === "https:" : true;
+      return true;
     }
 
-    // In development, allow any localhost port
-    if (!isProd && isLocal) return true;
+    // For anything else, require HTTPS in production
+    if (isProd && u.protocol !== "https:") return false;
 
     return false;
   } catch {
