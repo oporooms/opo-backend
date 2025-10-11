@@ -74,8 +74,13 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
-      - name: Install PM2 globally
-        run: sudo npm install -g pm2@5
+      - name: Install PM2 globally (if missing)
+        run: |
+          if command -v pm2 >/dev/null 2>&1; then
+            echo "pm2 already installed: $(pm2 -v)"
+          else
+            sudo npm install -g pm2@5
+          fi
       - name: Copy PM2 ecosystem if present
         run: |
           if [ -f ecosystem.config.js ]; then
