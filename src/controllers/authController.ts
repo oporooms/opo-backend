@@ -596,7 +596,7 @@ export const login = async (
   }
 
   const token = jwt.sign(
-    { userId: user._id },
+    { userId: user._id, otp: code },
     JWT_SECRET,
     {
       expiresIn: "30d", // 1 month
