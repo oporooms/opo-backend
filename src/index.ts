@@ -17,7 +17,7 @@ declare module 'express-serve-static-core' {
 }
 
 if (process.env.NODE_ENV === "production") {
-  dotenv.config({ path: ".env" });
+  dotenv.config({ path: ".env", debug: true });
 } else {
   // Load dotenv in development with colored debug output using chalk
   void (async () => {
