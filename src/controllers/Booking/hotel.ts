@@ -235,12 +235,12 @@ export const getHotelBookings = async (
                 from: 'Hotels',
                 localField: 'bookingDetails.ifHotelBooked.hotelId',
                 foreignField: '_id',
-                as: 'hotel'
+                as: 'hotelDetails'
             }
         },
         {
             $unwind: {
-                path: '$hotel',
+                path: '$hotelDetails',
                 preserveNullAndEmptyArrays: true
             }
         },

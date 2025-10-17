@@ -671,6 +671,7 @@ export const loginWithMail = async (
   }
 
   const user = await User.findOne({ email: isValidEmail.cleanedEmail }, { _id: 1 }).lean();
+  console.log({ user, isValidEmail })
 
   if (!user) {
     res.status(404).json({
