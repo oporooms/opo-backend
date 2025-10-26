@@ -19,12 +19,10 @@ const RT_DEBUG = process.env.RATE_LIMIT_DEBUG === "1";
 function dbg(...args: unknown[]) {
   if (RT_DEBUG) {
     // Prefix to make grepping easier
-    console.log("[rate-limit]", ...args);
   }
 }
 
 function createRateLimiter(options: RateLimitOptions): RequestHandler {
-  console.log("Rate limiter options:", options);
   const { windowMs, max, keyGenerator } = options;
   const genKey =
     keyGenerator ||

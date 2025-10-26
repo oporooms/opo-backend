@@ -61,9 +61,6 @@ export const getPackages = async (
         .limit(limitNumber)
         .lean();
 
-    console.log("Filter applied:", filter);
-    console.log("data", data);
-
     if (!data) {
         res.status(404).json({
             data: null,

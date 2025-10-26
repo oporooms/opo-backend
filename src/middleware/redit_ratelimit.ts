@@ -50,7 +50,6 @@ function getRedis(): Redis | undefined {
 			sharedRedis.on("error", (e: unknown) => {
 				if (process.env.RATE_LIMIT_DEBUG === "1") {
 					const msg = e instanceof Error ? e.message : String(e);
-					console.error("[redis-rate-limit] Redis error", msg);
 				}
 			});
 	return sharedRedis;

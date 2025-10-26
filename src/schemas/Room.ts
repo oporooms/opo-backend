@@ -43,7 +43,6 @@ roomSchema.pre('save', async function (next) {
             type: this.type,
             number: this.number
         });
-        console.log("Existing Room", existing);
         if (existing) {
             return next(new Error('Room with the same number and type already exists in this hotel.'));
         } else {

@@ -40,8 +40,6 @@ export const getBusList = async (
 
     if (city_name) query.city_name = new RegExp(String(city_name).trim(), 'i');
 
-    console.log({ city_name });
-
     if (city_name) {
         const trimmed = String(city_name).trim();
         if (trimmed.length < 3) {
@@ -80,8 +78,6 @@ export const getBusList = async (
             { $limit: 10 },
         ]);
 
-        console.log({ busList });
-
         const count = await BusList.countDocuments(query);
 
         res.status(200).json({
@@ -95,7 +91,6 @@ export const getBusList = async (
             }
         })
     } catch (error) {
-        console.log("Error in getBusList:", error);
         res.status(500).json({
             data: null,
             Status: {
@@ -111,7 +106,6 @@ export const searchBuses = async (
     res: Response<DefaultResponseBody<BusResponse>>
 ) => {
     const { OriginId, DestinationId, DateOfJourney } = req.query;
-    console.log({ OriginId, DestinationId, DateOfJourney });
 
     if (!OriginId) {
         res.status(400).json({
@@ -152,7 +146,6 @@ export const searchBuses = async (
 
     try {
         const response = await bdsdApi<typeof params, BusResponse>(apiEndPoints.search, params);
-        console.log({ response });
 
         if (response.Error.ErrorMessage.trim() == '') {
             res.status(200).json({
@@ -236,7 +229,6 @@ export const getSeatMap = async (
             });
         }
     } catch (error) {
-        console.error("Error fetching seat map:", error);
         res.status(500).json({
             data: null,
             Status: {
@@ -282,8 +274,6 @@ export const getBoardingPoints = async (
     try {
         const response = await bdsdApi<typeof params, BoardingPointResponse>(apiEndPoints.boardingPoints, params);
 
-        console.log({ boardingResponse: response });
-
         if (response.Error.ErrorMessage.trim() === '') {
             res.status(200).json({
                 data: response,
@@ -323,8 +313,6 @@ export const blockBusSeat = async (
     res: Response<DefaultResponseBody<BlockSeat>>
 ) => {
     const { SearchTokenId, ResultIndex, BoardingPointId, DroppingPointId, Passenger } = req.body;
-
-    console.log("🚀 ~ file: bus.ts:34 ~ createBusBooking ~ req.body:", req.body);
 
     if (!SearchTokenId) {
         res.status(400).json({
@@ -385,8 +373,6 @@ export const blockBusSeat = async (
         Passenger
     };
 
-    console.log("🚀 ~ file: bus.ts:79 ~ createBusBooking ~ params:", params);
-
     try {
         const response = await bdsdApi<typeof params, BlockSeat>(apiEndPoints.blockseat, params);
 
@@ -399,7 +385,6 @@ export const blockBusSeat = async (
                 }
             });
         } else {
-            console.error("Error blocking bus seat:", response.Error.ErrorMessage);
             res.status(400).json({
                 data: null,
                 Status: {
@@ -410,7 +395,6 @@ export const blockBusSeat = async (
         }
     } catch (error) {
         if(error instanceof AxiosError){
-            console.error("Axios error in block seat:", error.response?.data?.Status);
         }
         res.status(500).json({
             data: null,
@@ -630,11 +614,7 @@ export const cancelBooking = async (
             Remarks: "Cancel Bus Ticket"
         };
 
-        console.log({ params });
-
         const response = await bdsdApi<typeof params, CancelBookingResponse>(apiEndPoints.cancelBooking, params);
-
-        console.log(response);
 
         if (response?.SendChangeRequestResult?.Error?.ErrorMessage.trim() === '') {
             // await updateBookings(booking_Id, {
@@ -659,7 +639,6 @@ export const cancelBooking = async (
             });
         }
     } catch (error) {
-        console.error("Error canceling booking:", error);
         res.status(500).json({
             data: null,
             Status: {

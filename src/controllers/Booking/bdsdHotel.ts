@@ -50,7 +50,6 @@ export const createBdsdHotelBooking = async (
         return null;
     });
 
-    console.log("🚀 ~ file: bdsdHotel.ts:58 ~ createBdsdHotelBooking ~ blockHotel:", blockHotel)
 
     if (!blockHotel || blockHotel.Status.Code !== 200 || !blockHotel.data) {
         res.status(500).json({
@@ -64,7 +63,6 @@ export const createBdsdHotelBooking = async (
     }
 
     const user = await User.findOne({ _id: new Types.ObjectId(String(req.user?.userId)) });
-    console.log("user", user)
     const createdById = await User.findOne({ _id: new Types.ObjectId(String(req.user?.userId)) });
 
     if (!createdById) {
@@ -80,9 +78,6 @@ export const createBdsdHotelBooking = async (
 
     const total = blockHotel.data.Result?.HotelRoomsDetails?.find(i => Number(i.RoomIndex) == Number(RoomIndex))?.Price?.RoomPrice || 0
     const fee = blockHotel.data.Result?.HotelRoomsDetails?.[0]?.Price?.Tax || 0
-
-    console.log("total, fee", total, fee)
-    console.log("hotelRoomsDetails", blockHotel.data.Result?.HotelRoomsDetails)
 
     const totalAmount = blockHotel.data.Result?.HotelRoomsDetails?.find(i => Number(i.RoomIndex) == Number(RoomIndex))?.Price?.PublishedPrice || 0;
 
@@ -129,11 +124,7 @@ export const createBdsdHotelBooking = async (
     if (paymentMode === PaymentMode.payByCompany) {
         const companyId = createdById.userRole === 'CADMIN' ? createdById._id : createdById.companyId;
 
-        console.log("companyId", companyId)
-
         const companyWallet = await User.findOne({ _id: companyId as string });
-
-        console.log("companyWallet", companyWallet)
 
         if (!companyWallet?.wallet || companyWallet?.wallet < obj.payment.total) {
             res.status(400).json({

@@ -11,7 +11,8 @@ import adminRouter from './routes/Admin';
 declare module 'express-serve-static-core' {
   interface Request {
     user?: {
-      userId: string
+      userId: string,
+      otp?: string,
     };
   }
 }

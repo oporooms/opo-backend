@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import jsonwebtoken from "jsonwebtoken";
 import dotenv from "dotenv";
+import User from "@/schemas/User";
 dotenv.config({ path: ".env" });
 // JWT auth middleware (register before mainRoutes)
 const JWT_SECRET = process.env.JWT_SECRET?.trim();
@@ -26,7 +27,7 @@ function getToken(req: Request): string | undefined {
     return undefined;
 }
 
-const jwtAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
+const jwtAuthMiddleware = async(req: Request, res: Response, next: NextFunction) => {
     if (req.method === "OPTIONS") return next();
 
     if (!JWT_SECRET) {
@@ -50,12 +51,40 @@ const jwtAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
         }) as jsonwebtoken.JwtPayload & { userId?: string; id?: string; sub?: string };
 
         const userId = decoded.userId || decoded.sub || decoded.id;
+        
+        const user = await User.findById(userId).lean();
+
+        console.log("Authenticated user:", user);
+
+        if (!user) {
+            res.status(401).json({
+                data: null,
+                Status: {
+                    Code: 401,
+                    Message: "User not found"
+                }
+            });
+            return;
+        }
+
+        if(user.token !== token){
+            res.status(401).json({ 
+                data: null,
+                Status: {
+                    Code: 401,
+                    Message: "Logged in from another device"
+                }
+             });
+            return;
+        }
+
+        const otp = decoded.otp;
         if (!userId || typeof userId !== "string") {
             res.status(401).json({ error: "Invalid token payload" });
             return;
         }
 
-        req.user = { userId };
+        req.user = { userId, otp };
         next();
     } catch (err: any) {
         const name = err?.name;

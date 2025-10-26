@@ -245,9 +245,6 @@ export const getAllHotels = async (req: Request<{}, any, any, SearchHotel>, res:
 export const getSearchedSingleHotel = async (req: Request<{ slug: string }>, res: Response<DefaultResponseBody<IHotel>>): Promise<void> => {
     try {
         const { slug } = req.params;
-        // const nameSlug = slug.replace(/-OPO\d+$/i, '').replace(/-/g, ' ').trim().toLowerCase();
-
-        // console.log({ nameSlug });
 
         const hotel = await Hotel.findOne({ _id: new Types.ObjectId(slug), status: HotelStatus.APPROVED }).lean();
 
@@ -370,8 +367,6 @@ export const searchHotelsForBooking = async (req: Request<{}, any, SearchHotel>,
     );
 
     const hotels = await Hotel.aggregate(pipeline) as IHotel[];
-
-    console.log({hotels})
 
     const bdsdHotels = cityId ? await axios.post<DefaultResponseBody<HotelListResponse>>(`${process.env.SERVER_URL}/api/v1/bdsdHotel/searchHotel`, {
         "CheckInDate": dayjs(checkIn).format('YYYY-MM-DD'),

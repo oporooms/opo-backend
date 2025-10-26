@@ -459,8 +459,6 @@ export const register = async (
 
   const existingUser = await User.findOne({ phone: isValidPhone.cleanedPhone }, { _id: 1 }).lean();
 
-  console.log({ existingUser })
-
   if (existingUser) {
     res.status(400).json({
       data: "User already exists",
@@ -595,8 +593,10 @@ export const login = async (
     return;
   }
 
+  const encryptedOtp = await bcryptjs.hash(String(code), 10);
+
   const token = jwt.sign(
-    { userId: user._id, otp: code },
+    { userId: user._id, otp: encryptedOtp },
     JWT_SECRET,
     {
       expiresIn: "30d", // 1 month
@@ -619,7 +619,8 @@ export const login = async (
 
   await User.updateOne({ _id: user._id }, {
     token: token,
-    lastLogin: new Date()
+    lastLogin: new Date(),
+    lastOtp: encryptedOtp
   }).lean();
 
   const cookieOptions = {
@@ -659,11 +660,8 @@ export const loginWithMail = async (
   const { email, code } = req.body
 
   const isValidEmail = { cleanedEmail: email };
-  console.log({ isValidEmail })
 
   const isValid = await verifyMailOtp(isValidEmail.cleanedEmail, code);
-
-  console.log({ isValid })
 
   if (isValid.Status.Code == 400) {
     res.status(400).json(isValid);
@@ -671,7 +669,6 @@ export const loginWithMail = async (
   }
 
   const user = await User.findOne({ email: isValidEmail.cleanedEmail }, { _id: 1 }).lean();
-  console.log({ user, isValidEmail })
 
   if (!user) {
     res.status(404).json({

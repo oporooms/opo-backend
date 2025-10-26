@@ -64,8 +64,6 @@ export const getFlightAirportList = async (
         const fullRegex = { $regex: esc, $options: "i" };
         const prefixRegex = { $regex: "^" + prefixSlice, $options: "i" };
 
-        console.log("Searching for airport with query:", query);
-
         const orConditions: any[] = [
             // exact city_code match when query is numeric
             ...(/^\d+$/.test(q) ? [{ city_code: q }] : []),
@@ -105,8 +103,6 @@ export const getFlightAirportList = async (
                 }
             }
         ]);
-
-        console.log("Found airports:", flightList);
 
         const count = await FlightAirportListSchema.countDocuments({ $or: orConditions });
 
@@ -552,8 +548,6 @@ export const getSeatConfirmationFare = async (
 ) => {
     const searchParams = req.query;
 
-    console.log("Received params:", searchParams);
-
     switch (true) {
         case !searchParams.fareId:
             res.status(400).json({
@@ -583,20 +577,14 @@ export const getSeatConfirmationFare = async (
         "SearchTokenId": searchParams.SearchTokenId
     };
 
-    console.log("Request data prepared:", data);
-
     const dataReturn = {
         "UserIp": "122.161.66.42",
         "ResultIndex": searchParams.fareReturnId,
         "SearchTokenId": searchParams.SearchTokenId
     }
 
-    console.log("Return data prepared:", dataReturn);
-
     try {
         const fareConfirmationResponse = await bdsdApi<typeof data, FareConfirmation>(apiEndPoints.fareConfirmation, data);
-
-        console.log("Fare Confirmation Response:", fareConfirmationResponse);
 
         if (fareConfirmationResponse.Error.ErrorMessage.trim() !== '') {
             res.status(400).json({
@@ -609,8 +597,6 @@ export const getSeatConfirmationFare = async (
             return;
         }
         const seatMapResponse = await bdsdApi<typeof data, FlightSeatMap>(apiEndPoints.seatmap, data);
-
-        console.log("Seat Map Response:", seatMapResponse);
 
         if (seatMapResponse.Error.ErrorMessage.trim() !== '') {
             res.status(400).json({
@@ -625,8 +611,6 @@ export const getSeatConfirmationFare = async (
 
         const fareConfirmationReturnResponse = searchParams.fareReturnId ? await bdsdApi<typeof dataReturn, FareConfirmation>(apiEndPoints.fareConfirmation, dataReturn) : null;
 
-        console.log("Fare Confirmation Return Response:", fareConfirmationReturnResponse);
-
         if (searchParams.fareReturnId && fareConfirmationReturnResponse && fareConfirmationReturnResponse.Error.ErrorMessage.trim() !== '') {
             res.status(400).json({
                 data: null,
@@ -638,8 +622,6 @@ export const getSeatConfirmationFare = async (
         }
 
         const seatMapReturnResponse = searchParams.fareReturnId ? await bdsdApi<typeof dataReturn, FlightSeatMap>(apiEndPoints.seatmap, dataReturn) : null;
-
-        console.log("Seat Map Return Response:", seatMapReturnResponse);
 
         if (searchParams.fareReturnId && seatMapReturnResponse && seatMapReturnResponse.Error.ErrorMessage.trim() !== '') {
             res.status(400).json({
@@ -665,7 +647,6 @@ export const getSeatConfirmationFare = async (
         });
 
     } catch (error) {
-        console.log("Error occurred:", error);
         res.status(500).json({
             data: null,
             Status: {
@@ -845,7 +826,6 @@ export const getBookingDetails = async (
         }
 
     } catch (error) {
-        console.error(error);
         res.status(500).json({
             data: null,
             Status: {

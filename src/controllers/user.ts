@@ -145,12 +145,7 @@ export const getUserByCompanyId = async (
     if (query.phone) filter['phone'] = new RegExp(query.phone as string, "i");
     if (query.status) filter['status'] = query.status;
 
-    console.log("Query parameters:", query);
-    console.log("Filter constructed:", filter);
-
     const accessById = req.user?.userId;
-
-    console.log("AccessById:", accessById);
 
     if (!accessById) {
         res.status(401).json({
@@ -167,8 +162,6 @@ export const getUserByCompanyId = async (
         companyId: new Types.ObjectId(accessById),
         ...filter
     }).lean();
-
-    console.log("User found:", user);
 
     if (!user) {
         res.status(404).json({

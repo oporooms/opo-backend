@@ -179,8 +179,6 @@ export const searchHotel = async (
         CountryCode: CountryCode
     }
 
-    console.log('Final Search Hotel Data:', data)
-
     const response = await bdsdApi<typeof data, HotelListResponse>(apiEndPoints.search, data)
 
 
@@ -270,8 +268,6 @@ export const hotelRoom = async (
 ) => {
     const { UserIp, ResultIndex, HotelCode, SearchTokenId } = req.query
 
-    console.log('Query Params:', req.query);
-
     if (ResultIndex === undefined || ResultIndex === null || String(ResultIndex).trim() === '') {
         res.status(400).json({
             data: null,
@@ -335,8 +331,6 @@ export const blockRoom = async (
 ) => {
     const { UserIp, ResultIndex, HotelCode, HotelName, NoOfRooms, HotelRoomsDetails, SearchTokenId } = req.body
 
-    console.log('Block Room Request Body:', req.body);
-
     if (ResultIndex === undefined || ResultIndex === null || String(ResultIndex).trim() === '') {
         res.status(400).json({
             data: null,
@@ -369,14 +363,9 @@ export const blockRoom = async (
         SearchTokenId: String(SearchTokenId)
     }
 
-    console.log('Final Block Room Data:', data)
-
     const response = await bdsdApi<typeof data, BlockRoomResponse>(apiEndPoints.blockroom, data)
 
-    console.log('Block Room Response:', response);
-
     if (response.Error.ErrorMessage !== '') {
-        console.log('Block Room Error Response:', response);
         res.status(500).json({
             data: response,
             Status: { Code: response.Error.ErrorCode, Message: response.Error.ErrorMessage }

@@ -20,11 +20,7 @@ const razorpayInstance = new Razorpay({
 
 export const createOrder = async (req: Request, res: Response<DefaultResponseBody<Orders.RazorpayOrder>>) => {
     const { amount, currency, receipt } = req.body;
-    console.log({ amount, currency, receipt })
-    console.log({key: process.env.RAZORPAY_KEY_ID, secret: process.env.RAZORPAY_KEY_SECRET})
     try {
-
-
         if (!amount || !currency || !receipt) {
             res.status(400).json({
                 data: null,
@@ -53,7 +49,6 @@ export const createOrder = async (req: Request, res: Response<DefaultResponseBod
         });
         return;
     } catch (error) {
-        console.error("Error creating Razorpay order:", error);
         res.status(500).json({
             data: null,
             Status: {
@@ -111,10 +106,6 @@ export const updatePaymentDetails = async (req: Request, res: Response<DefaultRe
     }
 
     try {
-        // Update payment details in your database or payment provider
-        // This is a placeholder for your update logic
-        console.log("Updating payment details:", { orderId, paymentId, status });
-
         res.status(200).json({
             data: "Payment details updated successfully",
             Status: {
@@ -123,7 +114,6 @@ export const updatePaymentDetails = async (req: Request, res: Response<DefaultRe
             }
         });
     } catch (error) {
-        console.error("Error updating payment details:", error);
         res.status(500).json({
             data: null,
             Status: {
