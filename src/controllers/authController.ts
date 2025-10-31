@@ -580,7 +580,7 @@ export const login = async (
     return;
   }
 
-  const user = await User.findOne({ phone: isValidPhone.cleanedPhone }, { _id: 1 }).lean();
+  const user = await User.findOne({ phone: isValidPhone.cleanedPhone }).lean();
 
   if (!user) {
     res.status(404).json({
@@ -668,7 +668,7 @@ export const loginWithMail = async (
     return;
   }
 
-  const user = await User.findOne({ email: isValidEmail.cleanedEmail }, { _id: 1 }).lean();
+  const user = await User.findOne({ email: isValidEmail.cleanedEmail }).lean();
 
   if (!user) {
     res.status(404).json({
@@ -680,6 +680,8 @@ export const loginWithMail = async (
     });
     return;
   }
+
+  console.log("user found:", user);
 
   const token = jwt.sign(
     { userId: user._id },

@@ -13,7 +13,7 @@ const router = Router();
 router.post("/sendOtp", sendOtp);
 router.post("/sendMailOtp", sendMailOtp);
 router.post("/register", register);
-router.post("/login", loginRateLimiter, login);
-router.post("/loginWithMail", loginRateLimiter, loginWithMail);
+router.post("/login", login);
+router.post("/loginWithMail", loginWithMail);
 
 export default router;
