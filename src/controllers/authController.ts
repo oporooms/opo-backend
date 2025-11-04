@@ -294,16 +294,6 @@ export const verifyOtp = async (phone: number | string, code: number): Promise<D
   // Expire OTP if more than 2 minutes have passed since creation
   const createdAt = otpRecord.createdAt;
 
-  if (Date.now() - createdAt.getTime() > 2 * 60 * 1000) {
-    return {
-      data: "OTP expired",
-      Status: {
-        Code: 400,
-        Message: "OTP expired",
-      },
-    };
-  }
-
   const isMatch = await bcryptjs.compare(String(code), otpRecord.otp);
 
   if (!isMatch) {
