@@ -429,6 +429,7 @@ export const register = async (
   >
 ) => {
   const data = req.body;
+  const {type="phone"}=data;
 
   //Pre defined values so no need to set them in the request body
   const userRole = UserRole.USER;
@@ -460,7 +461,7 @@ export const register = async (
     return;
   }
 
-  const isValid = await verifyOtp(String(isValidPhone.cleanedPhone), Number(data.code));
+  const isValid = type== "email" ? await verifyMailOtp(String(data.email), Number(data.code)) : await verifyOtp(String(isValidPhone.cleanedPhone), Number(data.code));
 
   if (isValid.Status.Code == 400) {
     res.status(400).json(isValid);
@@ -670,8 +671,6 @@ export const loginWithMail = async (
     });
     return;
   }
-
-  console.log("user found:", user);
 
   const token = jwt.sign(
     { userId: user._id },

@@ -17,6 +17,7 @@ export interface VerifyOtpRequest extends Request {
 export interface RegisterRequest extends Request {
   body: IUser & {
     code: string;
+    type: "email" | "phone";
   };
 }
 
