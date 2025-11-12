@@ -60,6 +60,7 @@ const ViewSchema = new Schema<IHotel['views'][number]>(
 
 const HotelSchema = new Schema<IHotel>(
     {
+        _id: { type: Schema.Types.ObjectId, auto: true },
         hotelOwnerId: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
         location: { type: PointSchema },
         photos: { type: [String], required: true, default: [] },

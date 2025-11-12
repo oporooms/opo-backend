@@ -34,6 +34,7 @@ interface IView {
 }
 
 export interface IHotel {
+    _id: Types.ObjectId;
     hotelOwnerId: Types.ObjectId;
     hotelUId: number;
     location: IGeoPoint;
@@ -81,4 +82,5 @@ export interface SearchHotel {
     adults: string;
     child: string;
     childAge: string[];
+    status?: string | string[];
 }

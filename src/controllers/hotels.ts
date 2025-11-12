@@ -51,7 +51,23 @@ export const createHotelWithRooms = async (
 ): Promise<void> => {
     const { hotel, rooms } = req.body
 
+    if (!hotel) {
+        res.status(400).json({
+            data: null,
+            Status: {
+                Code: 400,
+                Message: "Hotel payload is required."
+            }
+        })
+        return
+    }
+
+    console.log('hotel', hotel);
+    console.log('rooms', rooms);
+
     const userId = req.user?.userId
+
+    console.log('userId', userId);
 
     if (!userId) {
         res.status(401).json({
@@ -65,13 +81,14 @@ export const createHotelWithRooms = async (
     }
 
     const user = await User.findOne({
-        _id: new Types.ObjectId(userId), userRole: {
-            $or: [
-                { $eq: UserRole.HotelOwner },
-                { $eq: UserRole.SADMIN }
-            ]
-        }
+        _id: new Types.ObjectId(userId),
+        $or: [
+            { userRole: { $eq: UserRole.HotelOwner } },
+            { userRole: { $eq: UserRole.SADMIN } }
+        ]
     }).lean();
+
+    console.log('user', user);
 
     if (!user) {
         res.status(403).json({
@@ -84,32 +101,116 @@ export const createHotelWithRooms = async (
         return;
     }
 
-    const hotelRes = new Hotel(hotel);
+    const sanitizeObjectId = (value: unknown): Types.ObjectId | undefined => {
+        if (!value) return undefined
+        const stringValue = String(value)
+        if (!stringValue || stringValue === 'undefined') return undefined
+        if (!Types.ObjectId.isValid(stringValue)) return undefined
+        return new Types.ObjectId(stringValue)
+    }
+
+    const sanitizedHotel: Partial<IHotel> = { ...hotel }
+
+    const fallbackOwnerId = sanitizeObjectId(user._id) ?? (user._id as unknown as Types.ObjectId)
+    const hotelOwnerObjectId = sanitizeObjectId(sanitizedHotel.hotelOwnerId) ?? fallbackOwnerId
+    if (!hotelOwnerObjectId) {
+        res.status(400).json({
+            data: null,
+            Status: {
+                Code: 400,
+                Message: "A valid hotelOwnerId is required."
+            }
+        })
+        return
+    }
+
+    const existingHotelId = sanitizeObjectId(sanitizedHotel._id)
+    if (existingHotelId) {
+        sanitizedHotel._id = existingHotelId as unknown as Types.ObjectId
+    } else {
+        delete (sanitizedHotel as Partial<IHotel> & { _id?: Types.ObjectId })._id
+    }
+
+    sanitizedHotel.hotelOwnerId = hotelOwnerObjectId as unknown as Types.ObjectId
+
+    if (sanitizedHotel.address) {
+        sanitizedHotel.address = {
+            ...sanitizedHotel.address,
+            lat: Number(sanitizedHotel.address.lat ?? 0) || 0,
+            lng: Number(sanitizedHotel.address.lng ?? 0) || 0,
+        }
+    }
+
+    if (sanitizedHotel.location?.coordinates) {
+        const [lng = 0, lat = 0] = sanitizedHotel.location.coordinates
+        sanitizedHotel.location = {
+            type: 'Point',
+            coordinates: [Number(lng) || 0, Number(lat) || 0]
+        }
+    }
+
+    if (!Array.isArray(sanitizedHotel.photos)) {
+        sanitizedHotel.photos = Array.isArray(hotel.photos) ? hotel.photos : []
+    }
+
+    if (!Array.isArray(sanitizedHotel.amenities)) {
+        sanitizedHotel.amenities = Array.isArray(hotel.amenities) ? hotel.amenities : []
+    }
+
+    const hotelRes = new Hotel(sanitizedHotel);
+    console.log('hotelRes', hotelRes);
     const hotelOwnerId = hotelRes.hotelOwnerId
+    console.log('hotelOwnerId', hotelOwnerId);
     const hotelId = hotelRes._id
-    await hotelRes.save();
+        console.log('hotelId', hotelId);
+    await hotelRes.save()
 
     if (rooms) {
-        const docs = await Promise.all(rooms.map(async data => {
-            const id = await getNextId({ id: "roomUId" });
+        console.log('rooms provided:', rooms);
+        console.log('hotelRes:', hotelRes);
+        console.log('hotelOwnerId:', hotelOwnerId, 'hotelId:', hotelId);
 
-            return {
-                ...data, hotelOwnerId,
+        const docs = await Promise.all(rooms.map(async (data, idx) => {
+            console.log(`processing room index ${idx}:`, data);
+            const id = await getNextId({ id: "roomUId" });
+            console.log(`generated roomUId for index ${idx}:`, id);
+
+            const roomOwnerId = sanitizeObjectId(data?.hotelOwnerId) ?? hotelOwnerId;
+
+            const doc: Record<string, unknown> = {
+                ...data,
+                hotelOwnerId: roomOwnerId,
                 hotelId,
-                roomUId: id
+                roomUId: id,
+                number: Number(data?.number ?? 0),
+                floorNumber: Number(data?.floorNumber ?? 0),
             };
+            console.log(`created doc for index ${idx}:`, doc);
+            return doc as unknown as IRooms;
         }));
+
+        console.log('prepared docs for insert:', docs);
+
         try {
+            console.log('inserting docs count:', docs.length);
             const roomResInserted = await Room.insertMany(docs);
-            const roomIds = roomResInserted.map(room => room._id);
+            console.log('insertMany succeeded, inserted count:', roomResInserted.length);
+
+            const roomIds = roomResInserted.map((roomDoc) => roomDoc._id);
+            console.log('inserted roomIds:', roomIds);
+
             const roomResp = await Room.find({ _id: { $in: roomIds } }) as unknown as IRooms[];
+            console.log('fetched inserted rooms from DB:', roomResp);
+
             res.status(201).json({
                 data: { hotel: hotelRes, rooms: roomResp },
                 Status: { Code: 0, Message: '' }
             });
             return;
         } catch (err: any) {
-            if (err.code === 11000) {
+            console.log('error while inserting rooms:', err);
+            if (err && (err as any).code === 11000) {
+                console.log('duplicate room error detail:', (err as any).keyValue ?? (err as any).message);
                 res.status(400).json({
                     data: null,
                     Status: {
@@ -117,13 +218,13 @@ export const createHotelWithRooms = async (
                         Message: 'Duplicate room: Room with the same number and type already exists in this hotel.'
                     }
                 });
-                return
+                return;
             }
             res.status(400).json({
                 data: null,
                 Status: {
                     Code: 1,
-                    Message: err.message
+                    Message: err?.message ?? 'Unknown error'
                 }
             });
         }
@@ -235,6 +336,25 @@ export const getAllHotels = async (req: Request<{}, any, any, SearchHotel>, res:
         const hotels = await Hotel.aggregate(pipeline) as IHotel[];
 
 
+
+        res.status(200).json({ data: hotels, Status: { Code: 0, Message: '' } });
+    } catch (error) {
+        res.status(500).json({ data: null, Status: { Code: 1, Message: (error as Error).message } });
+    }
+};
+
+export const getHotelsForHotelOwner = async (req: Request, res: Response<DefaultResponseBody<IHotel[]>>): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+
+        const user = await User.findOne({ _id: userId });
+
+        if (!user || user.userRole !== UserRole.HotelOwner) {
+            res.status(403).json({ data: null, Status: { Code: 1, Message: 'Forbidden' } });
+            return;
+        }
+
+        const hotels = await Hotel.find({ hotelOwnerId: userId }).lean();
 
         res.status(200).json({ data: hotels, Status: { Code: 0, Message: '' } });
     } catch (error) {
