@@ -56,6 +56,8 @@ const allowedOrigins = [
   "com.oporooms",
   "https://loomstay.in",
   "https://www.loomstay.in",
+  "https://opotravel.in",
+  "https://www.opotravel.in",
 ];
 
 // Keep full-origin strings for exact matches, and also derive hostnames so
@@ -104,7 +106,7 @@ const isOriginAllowed = (origin?: string): boolean => {
       return true;
     }
 
-    if (u.hostname === "loomstay.in" || u.hostname.endsWith(".loomstay.in")) {
+    if (u.hostname === "loomstay.in" || u.hostname.endsWith(".loomstay.in") || u.hostname.endsWith(".opotravel.in")) {
       return true;
     }
 
