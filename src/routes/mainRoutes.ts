@@ -10,6 +10,7 @@ import paymentRouter from './Payment/index';
 import jwtAuthMiddleware from '@/middleware/session';
 import packageRouter from './Package';
 import transactionRouter from './Transaction';
+import homestayRouter from './Homestay';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.use('/flight', flightRouter);
 router.use('/bus', busRouter);
 router.use('/package', packageRouter);
 router.use('/room', roomRouter);
+router.use('/homestay', homestayRouter);
 router.use('/user', jwtAuthMiddleware, userRouter);
 router.use('/booking', jwtAuthMiddleware, bookingRouter);
 router.use('/payment', jwtAuthMiddleware, paymentRouter);

@@ -182,6 +182,21 @@ const IfHotelBookedSchema = new Schema(
     { _id: false }
 );
 
+const IfHomeStayBookedSchema = new Schema(
+    {
+        assignedUnits: { type: [Schema.Types.Mixed], default: null },
+        checkIn: { type: Date, required: true },
+        checkOut: { type: Date, required: true },
+        adults: { type: Number, required: true },
+        childrens: { type: Number, required: true },
+        homestayId: { type: Schema.Types.ObjectId, required: true },
+        units: { type: Number, required: true },
+        unitType: { type: String, required: true },
+        totalDays: { type: Number },
+    },
+    { _id: false }
+);
+
 // Bus and Flight payloads are large vendor responses; store as flexible subdocs
 const IfBusBookedSchema = new Schema(
     {
@@ -211,6 +226,7 @@ const BookingDetailsSchema = new Schema(
         ifBusBooked: { type: IfBusBookedSchema, default: null },
         ifFlightBooked: { type: IfFlightBookedSchema, default: null },
         ifHotelBooked: { type: IfHotelBookedSchema, default: undefined },
+        ifHomeStayBooked: { type: IfHomeStayBookedSchema, default: undefined },
         price: { type: String, default: "" },
     },
     { _id: false, strict: false }

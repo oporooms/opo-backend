@@ -12,6 +12,9 @@ import Razorpay from "razorpay";
 import { v4 as uuidv4 } from "uuid";
 import { DefaultResponseBody } from "@/types/default";
 import { Orders } from "razorpay/dist/types/orders";
+import Booking from "@/schemas/Booking";
+import { BookingStatus, PaymentMode, PaymentStatus } from "@/types/Bookings";
+import { Types } from "mongoose";
 
 const razorpayInstance = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID || "",
@@ -63,7 +66,12 @@ export const createOrder = async (req: Request, res: Response<DefaultResponseBod
 export const verifyOrder = (req: Request, res: Response<DefaultResponseBody<boolean>>) => {
     const crypto = require('crypto');
 
-    const { orderId, paymentId, signature } = req.body;
+    const { orderId, paymentId, signature, bookingId } = req.body as {
+        orderId: string;
+        paymentId: string;
+        signature: string;
+        bookingId?: string;
+    };
 
     if (!orderId || !paymentId || !signature) {
         res.status(400).json({
@@ -82,12 +90,56 @@ export const verifyOrder = (req: Request, res: Response<DefaultResponseBody<bool
 
     const isValid = generatedSignature === signature;
 
-    res.status(isValid ? 200 : 400).json({
-        data: isValid,
-        Status: {
-            Code: isValid ? 200 : 400,
-            Message: isValid ? "Signature verified successfully" : "Signature verification failed",
+    if (!isValid) {
+        res.status(400).json({
+            data: false,
+            Status: {
+                Code: 400,
+                Message: "Signature verification failed",
+            }
+        });
+        return;
+    }
+
+    const finalizeBooking = async () => {
+        const filters: Array<Record<string, unknown>> = [];
+
+        if (bookingId && Types.ObjectId.isValid(bookingId)) {
+            filters.push({ _id: new Types.ObjectId(bookingId) });
         }
+
+        if (orderId) {
+            filters.push({ 'payment.transactionDetails.orderId': orderId });
+            filters.push({ 'payment.transactionDetails.id': orderId });
+        }
+
+        if (!filters.length) return;
+
+        await Booking.findOneAndUpdate(
+            {
+                $or: filters,
+            },
+            {
+                $set: {
+                    status: BookingStatus.BOOKED,
+                    'payment.status': PaymentStatus.success,
+                    'payment.transactionDetails.id': paymentId,
+                    'payment.transactionDetails.orderId': orderId,
+                    'payment.transactionDetails.mode': PaymentMode.onlinePay,
+                    'payment.transactionDetails.date': new Date()
+                }
+            }
+        );
+    };
+
+    finalizeBooking().finally(() => {
+        res.status(200).json({
+            data: true,
+            Status: {
+                Code: 200,
+                Message: "Signature verified successfully",
+            }
+        });
     });
 };
 

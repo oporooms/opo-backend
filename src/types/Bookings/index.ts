@@ -22,6 +22,7 @@ export enum PaymentStatus {
 
 export const enum BookingType {
     Hotel = "Hotel",
+    Homestay = "Homestay",
     Flight = "Flight",
     Bus = "Bus",
     Train = "Train",
@@ -51,6 +52,17 @@ interface HotelDetails {
     checkOut: Date,
     totalDays: number,
     roomType: string,
+}
+interface HomestayDetails {
+    homestayId: Types.ObjectId,
+    assignedUnits: [],
+    units: number,
+    adults: number,
+    childrens: number,
+    checkIn: Date,
+    checkOut: Date,
+    totalDays: number,
+    unitType: string,
 }
 interface FlightDetails {
     travellers: Passengers[],
@@ -217,7 +229,8 @@ export interface Bookings {
         ifBusBooked?: BusDetails,
         ifTrainBooked?: TrainDetails,
         ifPackageBooked?: PackageDetails,
-        ifOutSideHotelBooked?: OutSideHotelDetails
+        ifOutSideHotelBooked?: OutSideHotelDetails,
+        ifHomeStayBooked?: HomestayDetails,
     },
     status: BookingStatus,
     createdBy: Types.ObjectId,
