@@ -21,9 +21,9 @@ hotelRouter.get('/:slug', getSearchedSingleHotel)
 hotelRouter.use('/bdsd', bdsdHotelRouter);
 
 // PUT routes
-hotelRouter.put('/:_id', updateHotel)
+hotelRouter.put('/:_id', jwtAuthMiddleware, updateHotel)
 
 //DELETE routes
-hotelRouter.delete('/:_id', deleteHotel)
+hotelRouter.delete('/:_id', jwtAuthMiddleware, deleteHotel)
 
 export default hotelRouter;
