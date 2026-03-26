@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createHotel, createHotelWithRooms, deleteHotel, deleteMultipleHotels, getAllHotels, getHotelsForHotelOwner, getSearchedSingleHotel, searchHotelsForBooking, updateHotel } from '@/controllers/hotels';
+import { createHotel, createHotelWithRooms, deleteHotel, deleteMultipleHotels, getAllHotels, getAllHotelsForAdmin, getHotelsForHotelOwner, getSearchedSingleHotel, searchHotelsForBooking, updateHotel } from '@/controllers/hotels';
 import { searchCityForHotel } from '@/controllers/search';
 import { hotelInfo, hotelRoom } from '@/controllers/bdsdHotels';
 import bdsdHotelRouter from './bdsdHotel';
@@ -15,6 +15,7 @@ hotelRouter.post('/delete-many', jwtAuthMiddleware, deleteMultipleHotels) // Del
 
 // GET routes
 hotelRouter.get('/', getAllHotels)
+hotelRouter.get('/getHotelsForAdmin', getAllHotelsForAdmin)
 hotelRouter.get('/owner/me', jwtAuthMiddleware, getHotelsForHotelOwner)
 hotelRouter.post('/searchHotelsForBooking', searchHotelsForBooking)
 hotelRouter.get('/:slug', getSearchedSingleHotel)

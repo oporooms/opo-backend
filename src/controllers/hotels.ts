@@ -241,6 +241,115 @@ export const getAllHotels = async (req: Request<{}, any, any, SearchHotel>, res:
         const { hotelOwnerId, userId, name, nameNot, customAddress, desc, city, locality, lat, lng, placeId, regularPrice, salePrice, minPrice, maxPrice, minRating, maxRating, amenities, sort, skip = '0', limit = '10', nextId } = req.query;
         const filters: Record<string, unknown> = {};
 
+
+        if (hotelOwnerId) filters.hotelOwnerId = new Types.ObjectId(hotelOwnerId as string);
+        if (name) filters.name = new RegExp(name, "i");
+        if (nameNot) filters.name = { $not: new RegExp(nameNot, 'i') };
+        if (customAddress) filters.customAddress = new RegExp(customAddress, "i");
+        if (desc) filters.desc = new RegExp(desc, "i");
+        if (city) filters["address.City"] = new RegExp(city, "i");
+        if (locality) filters["address.Locality"] = new RegExp(locality, "i");
+        if (lat) filters["address.lat"] = parseFloat(lat);
+        if (lng) filters["address.lng"] = parseFloat(lng);
+        if (placeId) filters["address.placeId"] = placeId;
+        if (regularPrice) filters["rooms.regularPrice"] = parseFloat(regularPrice);
+        if (salePrice) filters["rooms.salePrice"] = parseFloat(salePrice);
+        if (amenities) filters["amenities"] = { $all: amenities.split(',').map(item => item.trim()) };
+
+        if (minPrice) {
+            filters['rooms.0.price'] = { $gte: parseFloat(minPrice), $lte: parseFloat(maxPrice) };
+        } else if (minPrice) {
+            filters['rooms.0.price'] = { $gte: parseFloat(minPrice) };
+        }
+
+        if (minRating && maxRating) {
+            filters['$expr'] = {
+                $and: [{ $gte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(minRating)] }, { $lte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(maxRating)] }]
+            };
+        } else if (minRating) {
+            filters['$expr'] = {
+                $gte: [{ $cond: [{ $eq: ['$totalRatingsCount', 0] }, 0, { $divide: ['$totalRatingsSum', '$totalRatingsCount'] }] }, parseFloat(minRating)]
+            };
+        }
+
+        if (sort === 'price_highest') {
+            filters['rooms.0.price'] = -1;
+        } else if (sort === 'price_lowest') {
+            filters['rooms.0.price'] = 1;
+        } else {
+            // filters['averageRating'] = -1;
+            // filters['_id'] = -1;
+        }
+
+        let pipeline: PipelineStage[] = [];
+
+        if (lat && lng) {
+            pipeline.push({
+                $geoNear: {
+                    near: { type: 'Point', coordinates: [Number(lng) || 0, Number(lat) || 0] },
+                    distanceField: 'dist.calculated',
+                    includeLocs: 'location',
+                    spherical: true,
+                    minDistance: 0,
+                    maxDistance: 10000
+                }
+            });
+        }
+
+        if (userId) {
+            pipeline.push({
+                $lookup: {
+                    from: 'Wishlist',
+                    let: { hotelId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$type', 'Hotel'] },
+                                        { $eq: ['$ifHotelWishListed._id', '$$hotelId'] },
+                                        { $eq: ['$userId', new Types.ObjectId(userId)] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'Wishlisted'
+                }
+            });
+        }
+
+        if (nextId) {
+            pipeline.push({ $match: { _id: { $gt: new Types.ObjectId(nextId) } } });
+        }
+
+        pipeline.push(
+            { $lookup: { from: 'Users', localField: 'hotelOwnerId', foreignField: '_id', as: 'hotelOwner' } },
+            { $lookup: { from: 'Rooms', localField: '_id', foreignField: 'hotelId', as: 'Rooms' } },
+            { $lookup: { from: 'Ratings', localField: '_id', foreignField: 'hotelId', as: 'Ratings' } },
+            { $lookup: { from: 'Bookings', localField: '_id', foreignField: 'bookingDetails.ifHotelBooked.hotelId', as: 'Bookings' } },
+            { $unwind: { path: "$hotelOwner", preserveNullAndEmptyArrays: true } },
+            { $match: { status: HotelStatus.APPROVED, ...filters } },
+            { $skip: parseInt(skip) },
+            { $limit: Math.min(parseInt(limit), 100) }
+        );
+
+        const hotels = await Hotel.aggregate(pipeline) as IHotel[];
+
+        res.status(200).json({ data: hotels, Status: { Code: 0, Message: '' } });
+    } catch (error) {
+        res.status(500).json({ data: null, Status: { Code: 1, Message: (error as Error).message } });
+    }
+};
+
+export const getAllHotelsForAdmin = async (req: Request<{}, any, any, SearchHotel>, res: Response<DefaultResponseBody<IHotel[]>>): Promise<void> => {
+    try {
+        const { hotelOwnerId, userId, name, nameNot, customAddress, desc, city, locality, lat, lng, placeId, regularPrice, salePrice, minPrice, maxPrice, minRating, maxRating, amenities, sort, skip = '0', limit = '10', nextId } = req.query;
+        const filters: Record<string, unknown> = {};
+
+        console.log('Query params:', req.query);
+
+
         if (hotelOwnerId) filters.hotelOwnerId = new Types.ObjectId(hotelOwnerId as string);
         if (name) filters.name = new RegExp(name, "i");
         if (nameNot) filters.name = { $not: new RegExp(nameNot, 'i') };
@@ -323,18 +432,13 @@ export const getAllHotels = async (req: Request<{}, any, any, SearchHotel>, res:
         }
 
         pipeline.push(
-            { $lookup: { from: 'Users', localField: 'hotelOwnerId', foreignField: '_id', as: 'hotelOwner' } },
-            { $lookup: { from: 'Rooms', localField: '_id', foreignField: 'hotelId', as: 'Rooms' } },
-            { $lookup: { from: 'Ratings', localField: '_id', foreignField: 'hotelId', as: 'Ratings' } },
-            { $lookup: { from: 'Bookings', localField: '_id', foreignField: 'bookingDetails.ifHotelBooked.hotelId', as: 'Bookings' } },
-            { $unwind: { path: "$hotelOwner", preserveNullAndEmptyArrays: true } },
-            { $match: { status: HotelStatus.APPROVED, ...filters } },
-            { $skip: parseInt(skip) },
-            { $limit: Math.min(parseInt(limit), 100) }
+          
+           
         );
 
+        console.log('Pipeline for getAllHotelsForAdmin:', JSON.stringify(pipeline, null, 2));
         const hotels = await Hotel.aggregate(pipeline) as IHotel[];
-
+        console.log('Fetched hotels', hotels);
 
 
         res.status(200).json({ data: hotels, Status: { Code: 0, Message: '' } });
@@ -342,6 +446,7 @@ export const getAllHotels = async (req: Request<{}, any, any, SearchHotel>, res:
         res.status(500).json({ data: null, Status: { Code: 1, Message: (error as Error).message } });
     }
 };
+
 
 export const getHotelsForHotelOwner = async (req: Request, res: Response<DefaultResponseBody<IHotel[]>>): Promise<void> => {
     try {
