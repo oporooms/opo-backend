@@ -62,12 +62,7 @@ export const createHotelWithRooms = async (
         return
     }
 
-    console.log('hotel', hotel);
-    console.log('rooms', rooms);
-
     const userId = req.user?.userId
-
-    console.log('userId', userId);
 
     if (!userId) {
         res.status(401).json({
@@ -87,8 +82,6 @@ export const createHotelWithRooms = async (
             { userRole: { $eq: UserRole.SADMIN } }
         ]
     }).lean();
-
-    console.log('user', user);
 
     if (!user) {
         res.status(403).json({
@@ -158,22 +151,14 @@ export const createHotelWithRooms = async (
     }
 
     const hotelRes = new Hotel(sanitizedHotel);
-    console.log('hotelRes', hotelRes);
     const hotelOwnerId = hotelRes.hotelOwnerId
-    console.log('hotelOwnerId', hotelOwnerId);
     const hotelId = hotelRes._id
-        console.log('hotelId', hotelId);
     await hotelRes.save()
 
     if (rooms) {
-        console.log('rooms provided:', rooms);
-        console.log('hotelRes:', hotelRes);
-        console.log('hotelOwnerId:', hotelOwnerId, 'hotelId:', hotelId);
 
         const docs = await Promise.all(rooms.map(async (data, idx) => {
-            console.log(`processing room index ${idx}:`, data);
             const id = await getNextId({ id: "roomUId" });
-            console.log(`generated roomUId for index ${idx}:`, id);
 
             const roomOwnerId = sanitizeObjectId(data?.hotelOwnerId) ?? hotelOwnerId;
 
@@ -185,22 +170,13 @@ export const createHotelWithRooms = async (
                 number: Number(data?.number ?? 0),
                 floorNumber: Number(data?.floorNumber ?? 0),
             };
-            console.log(`created doc for index ${idx}:`, doc);
             return doc as unknown as IRooms;
         }));
 
-        console.log('prepared docs for insert:', docs);
-
         try {
-            console.log('inserting docs count:', docs.length);
             const roomResInserted = await Room.insertMany(docs);
-            console.log('insertMany succeeded, inserted count:', roomResInserted.length);
-
             const roomIds = roomResInserted.map((roomDoc) => roomDoc._id);
-            console.log('inserted roomIds:', roomIds);
-
             const roomResp = await Room.find({ _id: { $in: roomIds } }) as unknown as IRooms[];
-            console.log('fetched inserted rooms from DB:', roomResp);
 
             res.status(201).json({
                 data: { hotel: hotelRes, rooms: roomResp },
@@ -208,9 +184,7 @@ export const createHotelWithRooms = async (
             });
             return;
         } catch (err: any) {
-            console.log('error while inserting rooms:', err);
             if (err && (err as any).code === 11000) {
-                console.log('duplicate room error detail:', (err as any).keyValue ?? (err as any).message);
                 res.status(400).json({
                     data: null,
                     Status: {
@@ -346,9 +320,6 @@ export const getAllHotelsForAdmin = async (req: Request<{}, any, any, SearchHote
     try {
         const { hotelOwnerId, userId, name, nameNot, customAddress, desc, city, locality, lat, lng, placeId, regularPrice, salePrice, minPrice, maxPrice, minRating, maxRating, amenities, sort, skip = '0', limit = '10', nextId } = req.query;
         const filters: Record<string, unknown> = {};
-
-        console.log('Query params:', req.query);
-
 
         if (hotelOwnerId) filters.hotelOwnerId = new Types.ObjectId(hotelOwnerId as string);
         if (name) filters.name = new RegExp(name, "i");

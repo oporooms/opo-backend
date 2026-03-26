@@ -144,6 +144,7 @@ export const getUserByCompanyId = async (
     if (query.email) filter['email'] = new RegExp(query.email as string, "i");
     if (query.phone) filter['phone'] = new RegExp(query.phone as string, "i");
     if (query.status) filter['status'] = query.status;
+    if (query.userRole) filter['userRole'] = query.userRole;
 
     const accessById = req.user?.userId;
 
@@ -158,10 +159,27 @@ export const getUserByCompanyId = async (
         return;
     }
 
-    const user = await User.find({
-        companyId: new Types.ObjectId(accessById),
-        ...filter
-    }).lean();
+    const accessBy = await User.findById(new Types.ObjectId(accessById)).lean();
+
+    if (!accessBy) {
+        res.status(403).json({
+            data: null,
+            Status: {
+                Code: 403,
+                Message: "Access denied: unable to verify requester identity."
+            }
+        });
+        return;
+    }
+
+    const baseFilter = accessBy.userRole === UserRole.SADMIN
+        ? { ...filter }
+        : {
+            companyId: new Types.ObjectId(accessById),
+            ...filter
+        };
+
+    const user = await User.find(baseFilter).lean();
 
     if (!user) {
         res.status(404).json({
@@ -179,6 +197,95 @@ export const getUserByCompanyId = async (
         Status: {
             Code: 200,
             Message: "User found"
+        }
+    });
+}
+
+export const getHotelOwners = async (
+    req: Request<any, any, any, { search?: string; limit?: string }>,
+    res: Response<DefaultResponseBody<IUser[]>>
+) => {
+    const accessById = req.user?.userId;
+
+    if (!accessById) {
+        res.status(401).json({
+            data: null,
+            Status: {
+                Code: 401,
+                Message: "Unauthorized"
+            }
+        });
+        return;
+    }
+
+    const accessBy = await User.findById(new Types.ObjectId(accessById)).lean();
+
+    if (!accessBy) {
+        res.status(403).json({
+            data: null,
+            Status: {
+                Code: 403,
+                Message: "Access denied: unable to verify requester identity."
+            }
+        });
+        return;
+    }
+
+    const allowedRoles: UserRole[] = [
+        UserRole.SADMIN,
+        UserRole.ViewAdmin,
+    ];
+
+    if (!allowedRoles.includes(accessBy.userRole)) {
+        res.status(403).json({
+            data: null,
+            Status: {
+                Code: 403,
+                Message: "You do not have permission to fetch hotel owners."
+            }
+        });
+        return;
+    }
+
+    const search = String(req.query.search || '').trim();
+    const limit = Math.min(Math.max(Number(req.query.limit || 20), 1), 100);
+    const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const searchFilter = (() => {
+        if (!search) return {};
+
+        const normalized = search.replace(/\s+/g, ' ').trim();
+        const escaped = escapeRegex(normalized);
+        const whitespaceTolerant = escaped.replace(/\s+/g, '.*');
+        const nameEmailRegex = new RegExp(whitespaceTolerant, "i");
+
+        const digits = normalized.replace(/\D/g, '');
+        const orConditions: Array<Record<string, unknown>> = [
+            { fullname: nameEmailRegex },
+            { email: nameEmailRegex },
+        ];
+
+        if (digits.length > 0) {
+            orConditions.push({ phone: new RegExp(digits, "i") });
+        }
+
+        return { $or: orConditions };
+    })();
+
+    const hotelOwners = await User.find({
+        userRole: UserRole.HotelOwner,
+        ...searchFilter
+    })
+        .select('_id fullname phone email userRole')
+        .sort({ fullname: 1 })
+        .limit(limit)
+        .lean();
+
+    res.status(200).json({
+        data: hotelOwners,
+        Status: {
+            Code: 200,
+            Message: "Hotel owners found"
         }
     });
 }
