@@ -32,7 +32,40 @@ async function run() {
       }
     });
 
-  console.log('Booking created _id:', (doc as any)._id.toString());
+    const homestayDoc = await Booking.create({
+      bookingType: 'Homestay',
+      bookingDate: new Date(),
+      status: 'booked',
+      createdBy: new mongoose.Types.ObjectId(),
+      payment: { cost: 2200, fee: 264, mode: 'Pay at hotel', status: 'pending', total: 2464, transactionDetails: { id: '' } },
+      userId: [new mongoose.Types.ObjectId()],
+      bookingDetails: {
+        companyApproval: 'Approved',
+        ifHomeStayBooked: {
+          assignedUnits: [],
+          checkIn: new Date(),
+          checkOut: new Date(Date.now() + 86400000),
+          adults: 2,
+          childrens: 1,
+          homestayId: new mongoose.Types.ObjectId(),
+          units: 1,
+          unitType: 'Deluxe Studio',
+          totalDays: 1,
+          traveller: {
+            email: 'traveller@example.com',
+            fullname: 'Homestay Traveller',
+            phone: '+911234567890',
+            address: '221B Baker Street',
+            dob: new Date('1994-06-12'),
+            gender: 'Male',
+            panNo: 'ABCDE1234F'
+          }
+        }
+      }
+    });
+
+    console.log('Hotel booking created _id:', (doc as any)._id.toString());
+    console.log('Homestay booking created _id:', (homestayDoc as any)._id.toString());
   } finally {
   await mongoose.disconnect();
   await mem.stop();

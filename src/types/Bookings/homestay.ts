@@ -34,6 +34,36 @@ export interface CreateHomestayBookingRequest {
     price?: number,
 }
 
+export interface CheckHomestayAvailabilityRequest {
+    homestayId: string,
+    unitType: string,
+    units: number,
+    checkIn: Date,
+    checkOut: Date,
+    adults?: number,
+    children?: number,
+}
+
+export interface CheckHomestayAvailabilityResponse {
+    homestayId: string,
+    unitType: string,
+    requestedUnits: number,
+    totalUnits: number,
+    bookedUnits: number,
+    availableUnits: number,
+    available: boolean,
+    occupancy: {
+        maxAdultsPerUnit: number,
+        maxChildrenPerUnit: number,
+        maxAdultsAllowed: number,
+        maxChildrenAllowed: number,
+        requestedAdults: number,
+        requestedChildren: number,
+        withinLimit: boolean,
+    },
+    message: string,
+}
+
 export interface CreateHomestayBookingResponse {
     order: Orders.RazorpayOrder | null | undefined,
     user: IUser,

@@ -1,4 +1,9 @@
-import { CreateHomestayBookingRequest, CreateHomestayBookingResponse } from "@/types/Bookings/homestay";
+import {
+    CheckHomestayAvailabilityRequest,
+    CheckHomestayAvailabilityResponse,
+    CreateHomestayBookingRequest,
+    CreateHomestayBookingResponse,
+} from "@/types/Bookings/homestay";
 import { DefaultResponseBody } from "@/types/default";
 import { Request, Response } from "express";
 import Booking from "@/schemas/Booking";
@@ -18,19 +23,104 @@ if (process.env.NODE_ENV === "production") {
     dotenv.config({ path: ".env.local" });
 }
 
-export const createHomestayBooking = async (
-    req: Request<any, any, CreateHomestayBookingRequest>,
-    res: Response<DefaultResponseBody<CreateHomestayBookingResponse>>
-) => {
-    const { traveller, homestayId, units, checkIn, checkOut, adults, children, unitType, paymentMode } = req.body;
+interface AvailabilityComputation extends CheckHomestayAvailabilityResponse {
+    selectedUnit: {
+        type: string;
+        price: number;
+        maxAdults: number;
+        maxChildren: number;
+    };
+}
 
-    const totalDays = Math.max(1, dayjs(checkOut).diff(dayjs(checkIn), 'day'));
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[+]?[-()\d\s]{7,20}$/;
+const VALID_PAYMENT_MODES = new Set<string>(Object.values(PaymentMode));
 
-    const existingBookings = await Booking.aggregate([
+const toDate = (value: unknown) => {
+    const parsed = new Date(String(value));
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+
+    return parsed;
+};
+
+const toInteger = (value: unknown, min = 0) => {
+    const parsed = Number(value);
+
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < min) {
+        return null;
+    }
+
+    return parsed;
+};
+
+const getAvailabilitySummary = async ({
+    homestayId,
+    unitType,
+    units,
+    checkIn,
+    checkOut,
+    adults = 0,
+    children = 0,
+}: {
+    homestayId: string;
+    unitType: string;
+    units: number;
+    checkIn: Date;
+    checkOut: Date;
+    adults?: number;
+    children?: number;
+}): Promise<{ error?: { code: number; message: string; }; data?: AvailabilityComputation; }> => {
+    if (!Types.ObjectId.isValid(homestayId)) {
+        return {
+            error: {
+                code: 400,
+                message: "Invalid homestay id",
+            }
+        };
+    }
+
+    const normalizedUnitType = unitType.trim();
+
+    if (!normalizedUnitType) {
+        return {
+            error: {
+                code: 400,
+                message: "Unit type is required",
+            }
+        };
+    }
+
+    const homestay = await Homestay.findById(new Types.ObjectId(homestayId));
+
+    if (!homestay) {
+        return {
+            error: {
+                code: 404,
+                message: "Homestay not found",
+            }
+        };
+    }
+
+    const sameTypeUnits = homestay.units.filter((item) => item.type === normalizedUnitType);
+
+    if (!sameTypeUnits.length) {
+        return {
+            error: {
+                code: 400,
+                message: "Selected unit type not available",
+            }
+        };
+    }
+
+    const overlappingBookings = await Booking.aggregate([
         {
             $match: {
                 bookingType: BookingType.Homestay,
-                'bookingDetails.ifHomeStayBooked.homestayId': new Types.ObjectId(homestayId)
+                status: { $ne: BookingStatus.CANCELLED },
+                'bookingDetails.ifHomeStayBooked.homestayId': new Types.ObjectId(homestayId),
+                'bookingDetails.ifHomeStayBooked.unitType': normalizedUnitType,
             }
         },
         {
@@ -58,197 +148,465 @@ export const createHomestayBooking = async (
                     ]
                 }
             }
+        },
+        {
+            $project: {
+                'bookingDetails.ifHomeStayBooked.units': 1,
+            }
         }
     ]);
 
-    const homestay = await Homestay.findOne({ _id: new Types.ObjectId(homestayId) });
+    const bookedUnits = overlappingBookings.reduce((acc, curr) => {
+        return acc + Number(curr?.bookingDetails?.ifHomeStayBooked?.units || 0);
+    }, 0);
 
-    if (!homestay) {
-        res.status(404).json({
-            data: null,
-            Status: {
-                Code: 404,
-                Message: "Homestay not found",
-            }
-        });
-        return;
+    const totalUnits = sameTypeUnits.length;
+    const availableUnits = Math.max(0, totalUnits - bookedUnits);
+    const requestedUnits = Math.max(1, units);
+
+    const selectedUnit = sameTypeUnits[0];
+    const maxAdultsPerUnit = Number(selectedUnit.maxAdults || 0);
+    const maxChildrenPerUnit = Number(selectedUnit.maxChildren || 0);
+
+    const requestedAdults = Math.max(0, Number(adults || 0));
+    const requestedChildren = Math.max(0, Number(children || 0));
+
+    const maxAdultsAllowed = maxAdultsPerUnit * requestedUnits;
+    const maxChildrenAllowed = maxChildrenPerUnit * requestedUnits;
+
+    const enoughUnits = availableUnits >= requestedUnits;
+    const withinOccupancy = requestedAdults <= maxAdultsAllowed && requestedChildren <= maxChildrenAllowed;
+
+    let message = "Requested unit(s) are available for selected dates.";
+
+    if (!enoughUnits) {
+        message = `Only ${availableUnits} unit(s) are available for selected dates.`;
+    } else if (!withinOccupancy) {
+        message = `Selected occupancy exceeds limit. Maximum allowed for ${requestedUnits} unit(s): ${maxAdultsAllowed} adults and ${maxChildrenAllowed} children.`;
     }
 
-    const selectedUnit = homestay.units.find((item) => item.type === unitType);
-
-    if (!selectedUnit) {
-        res.status(400).json({
-            data: null,
-            Status: {
-                Code: 400,
-                Message: "Selected unit type not available",
-            }
-        });
-        return;
-    }
-
-    const totalBookedUnits = existingBookings.reduce((acc, curr) => acc + Number(curr?.bookingDetails?.ifHomeStayBooked?.units || 0), 0);
-    const totalAvailableUnits = Math.max(0, Number(homestay.units.length) - totalBookedUnits);
-
-    if (totalAvailableUnits < Number(units)) {
-        res.status(400).json({
-            data: null,
-            Status: {
-                Code: 400,
-                Message: `Only ${totalAvailableUnits} units are available for selected dates.`,
-            }
-        });
-        return;
-    }
-
-    const user = await User.findOne({ _id: new Types.ObjectId(String(req.user?.userId)) });
-    const createdById = await User.findOne({ _id: new Types.ObjectId(String(req.user?.userId)) });
-
-    if (!createdById) {
-        res.status(404).json({
-            data: null,
-            Status: {
-                Code: 404,
-                Message: "Unauthorized",
-            }
-        });
-        return;
-    }
-
-    const cost = Number(selectedUnit.price) * Number(units) * totalDays;
-    const tax = cost * 0.12;
-    const total = Math.round(cost + tax);
-
-    const obj: Bookings = {
-        userId: [new Types.ObjectId(String(req.user?.userId))],
-        bookingType: BookingType.Homestay,
-        bookingDate: new Date(),
-        bookingDetails: {
-            companyApproval: CompanyApproval.Approved,
-            ifHomeStayBooked: {
-                homestayId: homestay._id,
-                assignedUnits: [],
-                units: Number(units),
-                checkIn: new Date(String(checkIn)),
-                checkOut: new Date(String(checkOut)),
-                adults: +adults,
-                childrens: +children,
-                totalDays,
-                unitType: selectedUnit.type,
+    return {
+        data: {
+            homestayId: String(homestay._id),
+            unitType: normalizedUnitType,
+            requestedUnits,
+            totalUnits,
+            bookedUnits,
+            availableUnits,
+            available: enoughUnits && withinOccupancy,
+            occupancy: {
+                maxAdultsPerUnit,
+                maxChildrenPerUnit,
+                maxAdultsAllowed,
+                maxChildrenAllowed,
+                requestedAdults,
+                requestedChildren,
+                withinLimit: withinOccupancy,
             },
-        },
-        status: paymentMode === PaymentMode.onlinePay ? BookingStatus.PENDING : BookingStatus.BOOKED,
-        payment: {
-            mode: paymentMode,
-            status: paymentMode === PaymentMode.onlinePay ? PaymentStatus.pending : PaymentStatus.success,
-            cost,
-            fee: +tax,
-            total,
-            transactionDetails: {
-                date: null,
-                id: '',
-                mode: paymentMode,
-                orderId: '',
+            message,
+            selectedUnit: {
+                type: selectedUnit.type,
+                price: Number(selectedUnit.price || 0),
+                maxAdults: maxAdultsPerUnit,
+                maxChildren: maxChildrenPerUnit,
             },
-        },
-        gstDetails: traveller?.gstDetails as Bookings['gstDetails'],
-        createdBy: new Types.ObjectId(createdById._id.toString()),
-        createdAt: new Date(),
-        updatedAt: new Date()
+        }
     };
+};
 
-    if (paymentMode === PaymentMode.payByCompany) {
-        const companyId = createdById.userRole === 'CADMIN' ? createdById._id : createdById.companyId;
-        const companyWallet = await User.findOne({ _id: companyId as string });
+export const checkHomestayAvailability = async (
+    req: Request<any, any, CheckHomestayAvailabilityRequest>,
+    res: Response<DefaultResponseBody<CheckHomestayAvailabilityResponse>>
+) => {
+    try {
+        const homestayId = String(req.body.homestayId || '').trim();
+        const unitType = String(req.body.unitType || '').trim();
+        const units = toInteger(req.body.units, 1);
+        const adults = toInteger(req.body.adults ?? 0, 0);
+        const children = toInteger(req.body.children ?? 0, 0);
+        const checkIn = toDate(req.body.checkIn);
+        const checkOut = toDate(req.body.checkOut);
 
-        if (!companyWallet?.wallet || companyWallet.wallet < obj.payment.total) {
+        if (!homestayId || !unitType || units === null || adults === null || children === null || !checkIn || !checkOut) {
             res.status(400).json({
                 data: null,
                 Status: {
                     Code: 400,
-                    Message: "Insufficient balance in company wallet",
+                    Message: "homestayId, unitType, units, checkIn, checkOut, adults and children are required",
                 }
             });
             return;
         }
 
-        obj.bookingDetails.companyApproval = createdById.userRole === 'EMPLOYEE' ? CompanyApproval.Pending : CompanyApproval.Approved;
-        obj.payment.status = createdById.userRole === 'EMPLOYEE' ? PaymentStatus.pending : PaymentStatus.success;
-        obj.status = createdById.userRole === 'EMPLOYEE' ? BookingStatus.PENDING : BookingStatus.BOOKED;
-        obj.createdBy = new Types.ObjectId(String(companyId));
-    }
+        if (!dayjs(checkOut).isAfter(dayjs(checkIn), 'day')) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "checkOut must be at least one day after checkIn",
+                }
+            });
+            return;
+        }
 
-    if (paymentMode === PaymentMode.payAtHotel) {
-        obj.payment.status = PaymentStatus.pending;
-        obj.status = BookingStatus.BOOKED;
-    }
+        const availability = await getAvailabilitySummary({
+            homestayId,
+            unitType,
+            units,
+            checkIn,
+            checkOut,
+            adults,
+            children,
+        });
 
-    const createdBooking = await Booking.insertOne({ ...obj });
+        if (availability.error) {
+            res.status(availability.error.code).json({
+                data: null,
+                Status: {
+                    Code: availability.error.code,
+                    Message: availability.error.message,
+                }
+            });
+            return;
+        }
 
-    if (!createdBooking._id) {
+        const { selectedUnit: _, ...response } = availability.data as AvailabilityComputation;
+
+        res.status(200).json({
+            data: response,
+            Status: {
+                Code: 200,
+                Message: response.message,
+            }
+        });
+    } catch (error) {
         res.status(500).json({
             data: null,
             Status: {
                 Code: 500,
-                Message: "Failed to create booking",
+                Message: (error as Error).message || "Something went wrong",
             }
         });
-        return;
     }
+};
 
-    let order: DefaultResponseBody<Orders.RazorpayOrder> | null = null;
+export const createHomestayBooking = async (
+    req: Request<any, any, CreateHomestayBookingRequest>,
+    res: Response<DefaultResponseBody<CreateHomestayBookingResponse>>
+) => {
+    try {
+        const { traveller, homestayId, units, checkIn, checkOut, adults, children, unitType, paymentMode } = req.body;
 
-    if (paymentMode === PaymentMode.onlinePay) {
-        order = await axios.post<DefaultResponseBody<Orders.RazorpayOrder>>(`${process.env.SERVER_URL}/api/v1/payment/razorpay/createOrder`, {
-            amount: total,
-            currency: "INR",
-            receipt: createdBooking._id.toString(),
-        }, {
-            headers: {
-                Authorization: req.headers.authorization
-            }
-        }).then((r) => r.data);
+        const trimmedHomestayId = String(homestayId || '').trim();
+        const trimmedUnitType = String(unitType || '').trim();
+        const parsedUnits = toInteger(units, 1);
+        const parsedAdults = toInteger(adults, 1);
+        const parsedChildren = toInteger(children, 0);
+        const parsedCheckIn = toDate(checkIn);
+        const parsedCheckOut = toDate(checkOut);
 
-        if (!order?.data?.id) {
-            await Booking.findByIdAndUpdate(createdBooking._id, {
-                $set: {
-                    status: BookingStatus.CANCELLED,
-                    'payment.status': PaymentStatus.declined
-                }
-            });
-
-            res.status(500).json({
+        if (!traveller) {
+            res.status(400).json({
                 data: null,
                 Status: {
-                    Code: 500,
-                    Message: "Failed to initialize payment order",
+                    Code: 400,
+                    Message: "Traveller details are required",
                 }
             });
             return;
         }
 
-        await Booking.findByIdAndUpdate(createdBooking._id, {
-            $set: {
-                'payment.transactionDetails.orderId': order.data.id,
-                'payment.transactionDetails.id': order.data.id,
-                'payment.transactionDetails.mode': PaymentMode.onlinePay,
-                status: BookingStatus.PENDING,
-                'payment.status': PaymentStatus.pending,
+        const normalizedTraveller = {
+            email: String(traveller.email || '').trim(),
+            fullname: String(traveller.fullname || '').trim(),
+            phone: String(traveller.phone || '').trim(),
+            address: String(traveller.address || '').trim(),
+            dob: toDate(traveller.dob),
+            gender: String(traveller.gender || '').trim(),
+            panNo: String(traveller.panNo || '').trim(),
+            gstDetails: traveller.gstDetails,
+        };
+
+        if (
+            !trimmedHomestayId ||
+            !trimmedUnitType ||
+            parsedUnits === null ||
+            parsedAdults === null ||
+            parsedChildren === null ||
+            !parsedCheckIn ||
+            !parsedCheckOut
+        ) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "homestayId, unitType, units, checkIn, checkOut, adults and children are required",
+                }
+            });
+            return;
+        }
+
+        if (!VALID_PAYMENT_MODES.has(String(paymentMode || ''))) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "Invalid payment mode",
+                }
+            });
+            return;
+        }
+
+        if (!EMAIL_REGEX.test(normalizedTraveller.email)) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "Please provide a valid traveller email",
+                }
+            });
+            return;
+        }
+
+        if (!PHONE_REGEX.test(normalizedTraveller.phone)) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "Please provide a valid traveller phone",
+                }
+            });
+            return;
+        }
+
+        if (!normalizedTraveller.fullname || !normalizedTraveller.address || !normalizedTraveller.gender || !normalizedTraveller.dob) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "Traveller fullname, address, dob and gender are required",
+                }
+            });
+            return;
+        }
+
+        if (!dayjs(parsedCheckOut).isAfter(dayjs(parsedCheckIn), 'day')) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: "checkOut must be at least one day after checkIn",
+                }
+            });
+            return;
+        }
+
+        const availability = await getAvailabilitySummary({
+            homestayId: trimmedHomestayId,
+            unitType: trimmedUnitType,
+            units: parsedUnits,
+            checkIn: parsedCheckIn,
+            checkOut: parsedCheckOut,
+            adults: parsedAdults,
+            children: parsedChildren,
+        });
+
+        if (availability.error) {
+            res.status(availability.error.code).json({
+                data: null,
+                Status: {
+                    Code: availability.error.code,
+                    Message: availability.error.message,
+                }
+            });
+            return;
+        }
+
+        if (!availability.data?.available) {
+            res.status(400).json({
+                data: null,
+                Status: {
+                    Code: 400,
+                    Message: availability.data?.message || "Selected unit is not available",
+                }
+            });
+            return;
+        }
+
+        const totalDays = Math.max(1, dayjs(parsedCheckOut).diff(dayjs(parsedCheckIn), 'day'));
+
+        const user = await User.findById(new Types.ObjectId(String(req.user?.userId)));
+        const createdById = await User.findById(new Types.ObjectId(String(req.user?.userId)));
+
+        if (!createdById) {
+            res.status(404).json({
+                data: null,
+                Status: {
+                    Code: 404,
+                    Message: "Unauthorized",
+                }
+            });
+            return;
+        }
+
+        const selectedUnit = availability.data.selectedUnit;
+        const cost = Number(selectedUnit.price) * parsedUnits * totalDays;
+        const tax = cost * 0.12;
+        const total = Math.round(cost + tax);
+        const normalizedPaymentMode = paymentMode as PaymentMode;
+
+        const obj: Bookings = {
+            userId: [new Types.ObjectId(String(req.user?.userId))],
+            bookingType: BookingType.Homestay,
+            bookingDate: new Date(),
+            bookingDetails: {
+                companyApproval: CompanyApproval.Approved,
+                ifHomeStayBooked: {
+                    homestayId: new Types.ObjectId(trimmedHomestayId),
+                    assignedUnits: [],
+                    units: parsedUnits,
+                    checkIn: parsedCheckIn,
+                    checkOut: parsedCheckOut,
+                    adults: parsedAdults,
+                    childrens: parsedChildren,
+                    totalDays,
+                    unitType: selectedUnit.type,
+                    traveller: {
+                        email: normalizedTraveller.email,
+                        fullname: normalizedTraveller.fullname,
+                        phone: normalizedTraveller.phone,
+                        address: normalizedTraveller.address,
+                        dob: normalizedTraveller.dob,
+                        gender: normalizedTraveller.gender,
+                        panNo: normalizedTraveller.panNo,
+                    }
+                },
+            },
+            status: normalizedPaymentMode === PaymentMode.onlinePay ? BookingStatus.PENDING : BookingStatus.BOOKED,
+            payment: {
+                mode: normalizedPaymentMode,
+                status: normalizedPaymentMode === PaymentMode.onlinePay ? PaymentStatus.pending : PaymentStatus.success,
+                cost,
+                fee: +tax,
+                total,
+                transactionDetails: {
+                    date: null,
+                    id: '',
+                    mode: normalizedPaymentMode,
+                    orderId: '',
+                },
+            },
+            gstDetails: normalizedTraveller.gstDetails as Bookings['gstDetails'],
+            createdBy: new Types.ObjectId(createdById._id.toString()),
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        if (normalizedPaymentMode === PaymentMode.payByCompany) {
+            const companyId = createdById.userRole === 'CADMIN' ? createdById._id : createdById.companyId;
+            const companyWallet = await User.findOne({ _id: companyId as string });
+
+            if (!companyWallet?.wallet || companyWallet.wallet < obj.payment.total) {
+                res.status(400).json({
+                    data: null,
+                    Status: {
+                        Code: 400,
+                        Message: "Insufficient balance in company wallet",
+                    }
+                });
+                return;
+            }
+
+            obj.bookingDetails.companyApproval = createdById.userRole === 'EMPLOYEE' ? CompanyApproval.Pending : CompanyApproval.Approved;
+            obj.payment.status = createdById.userRole === 'EMPLOYEE' ? PaymentStatus.pending : PaymentStatus.success;
+            obj.status = createdById.userRole === 'EMPLOYEE' ? BookingStatus.PENDING : BookingStatus.BOOKED;
+            obj.createdBy = new Types.ObjectId(String(companyId));
+        }
+
+        if (normalizedPaymentMode === PaymentMode.payAtHotel) {
+            obj.payment.status = PaymentStatus.pending;
+            obj.status = BookingStatus.BOOKED;
+        }
+
+        const createdBooking = await Booking.insertOne({ ...obj });
+
+        if (!createdBooking._id) {
+            res.status(500).json({
+                data: null,
+                Status: {
+                    Code: 500,
+                    Message: "Failed to create booking",
+                }
+            });
+            return;
+        }
+
+        let order: DefaultResponseBody<Orders.RazorpayOrder> | null = null;
+
+        if (normalizedPaymentMode === PaymentMode.onlinePay) {
+            order = await axios.post<DefaultResponseBody<Orders.RazorpayOrder>>(
+                `${process.env.SERVER_URL}/api/v1/payment/razorpay/createOrder`,
+                {
+                    amount: total,
+                    currency: "INR",
+                    receipt: createdBooking._id.toString(),
+                },
+                {
+                    headers: {
+                        Authorization: req.headers.authorization
+                    }
+                }
+            ).then((r) => r.data).catch(() => null);
+
+            if (!order?.data?.id) {
+                await Booking.findByIdAndUpdate(createdBooking._id, {
+                    $set: {
+                        status: BookingStatus.CANCELLED,
+                        'payment.status': PaymentStatus.declined
+                    }
+                });
+
+                res.status(500).json({
+                    data: null,
+                    Status: {
+                        Code: 500,
+                        Message: "Failed to initialize payment order",
+                    }
+                });
+                return;
+            }
+
+            await Booking.findByIdAndUpdate(createdBooking._id, {
+                $set: {
+                    'payment.transactionDetails.orderId': order.data.id,
+                    'payment.transactionDetails.id': order.data.id,
+                    'payment.transactionDetails.mode': PaymentMode.onlinePay,
+                    status: BookingStatus.PENDING,
+                    'payment.status': PaymentStatus.pending,
+                }
+            });
+        }
+
+        res.status(200).json({
+            data: {
+                order: order?.data,
+                bookingId: createdBooking._id.toString(),
+                user: user as IUser,
+            },
+            Status: {
+                Code: 200,
+                Message: "Homestay booking initialized successfully",
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            data: null,
+            Status: {
+                Code: 500,
+                Message: (error as Error).message || "Failed to create booking",
             }
         });
     }
-
-    res.status(200).json({
-        data: {
-            order: order?.data,
-            bookingId: createdBooking._id.toString(),
-            user: user as IUser,
-        },
-        Status: {
-            Code: 200,
-            Message: "Homestay booking initialized successfully",
-        }
-    });
 };
 
 export const getHomestayBookings = async (

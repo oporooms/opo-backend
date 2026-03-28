@@ -63,6 +63,15 @@ interface HomestayDetails {
     checkOut: Date,
     totalDays: number,
     unitType: string,
+    traveller?: {
+        email: string,
+        fullname: string,
+        phone: string,
+        address: string,
+        dob: Date,
+        gender: string,
+        panNo?: string,
+    },
 }
 interface FlightDetails {
     travellers: Passengers[],

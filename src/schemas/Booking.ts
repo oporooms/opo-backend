@@ -182,6 +182,19 @@ const IfHotelBookedSchema = new Schema(
     { _id: false }
 );
 
+const HomestayTravellerSchema = new Schema(
+    {
+        email: { type: String, required: true },
+        fullname: { type: String, required: true },
+        phone: { type: String, required: true },
+        address: { type: String, required: true },
+        dob: { type: Date, required: true },
+        gender: { type: String, required: true },
+        panNo: { type: String, default: "" },
+    },
+    { _id: false }
+);
+
 const IfHomeStayBookedSchema = new Schema(
     {
         assignedUnits: { type: [Schema.Types.Mixed], default: null },
@@ -193,6 +206,7 @@ const IfHomeStayBookedSchema = new Schema(
         units: { type: Number, required: true },
         unitType: { type: String, required: true },
         totalDays: { type: Number },
+        traveller: { type: HomestayTravellerSchema, default: undefined },
     },
     { _id: false }
 );
