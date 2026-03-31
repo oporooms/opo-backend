@@ -61,6 +61,13 @@ export interface SearchHomestay {
     locality?: string;
     lat?: string;
     lng?: string;
+    checkIn?: string;
+    checkOut?: string;
+    adults?: string;
+    children?: string;
+    units?: string;
+    unit?: string;
+    rooms?: string;
     minPrice?: string;
     maxPrice?: string;
     amenities?: string;

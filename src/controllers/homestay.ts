@@ -3,7 +3,10 @@ import { HomestayStatus, IHomestay, SearchHomestay } from "@/types/homestay";
 import type { Request, Response } from "express";
 import { Types } from "mongoose";
 import Homestay from "@/schemas/Homestay/Homestay";
+import Booking from "@/schemas/Booking";
 import User from "@/schemas/User";
+import dayjs from "dayjs";
+import { BookingStatus, BookingType } from "@/types/Bookings";
 import { UserRole } from "@/types/user";
 
 export const createHomestay = async (
@@ -60,7 +63,138 @@ export const getAllHomestays = async (
     res: Response<DefaultResponseBody<IHomestay[]>>
 ) => {
     try {
-        const { homestayOwnerId, name, city, locality, lat, lng, minPrice, maxPrice, amenities, skip = '0', limit = '20' } = req.query;
+        const {
+            homestayOwnerId,
+            name,
+            city,
+            locality,
+            lat,
+            lng,
+            checkIn,
+            checkOut,
+            adults,
+            children,
+            units,
+            unit,
+            rooms,
+            minPrice,
+            maxPrice,
+            amenities,
+            skip = '0',
+            limit = '20'
+        } = req.query;
+
+        const toNumber = (value: unknown): number | null => {
+            if (value === undefined || value === null || value === '') {
+                return null;
+            }
+
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        };
+
+        const parsedSkip = Math.max(0, toNumber(skip) ?? 0);
+        const parsedLimit = Math.max(1, toNumber(limit) ?? 20);
+
+        const parsedLat = toNumber(lat);
+        const parsedLng = toNumber(lng);
+        if ((lat && parsedLat === null) || (lng && parsedLng === null)) {
+            res.status(400).json({
+                data: null,
+                Status: { Code: 400, Message: "lat and lng must be valid numbers" }
+            });
+            return;
+        }
+
+        const parsedMinPrice = toNumber(minPrice);
+        const parsedMaxPrice = toNumber(maxPrice);
+
+        if ((minPrice && parsedMinPrice === null) || (maxPrice && parsedMaxPrice === null)) {
+            res.status(400).json({
+                data: null,
+                Status: { Code: 400, Message: "minPrice and maxPrice must be valid numbers" }
+            });
+            return;
+        }
+
+        if (
+            parsedMinPrice !== null &&
+            parsedMaxPrice !== null &&
+            parsedMinPrice > parsedMaxPrice
+        ) {
+            res.status(400).json({
+                data: null,
+                Status: { Code: 400, Message: "minPrice cannot be greater than maxPrice" }
+            });
+            return;
+        }
+
+        const parsedAdults = toNumber(adults);
+        const parsedChildren = toNumber(children);
+        const rawUnits = units ?? unit ?? rooms;
+        const parsedUnits = toNumber(rawUnits);
+
+        if (adults && (parsedAdults === null || parsedAdults < 1 || !Number.isInteger(parsedAdults))) {
+            res.status(400).json({
+                data: null,
+                Status: { Code: 400, Message: "adults must be a positive integer" }
+            });
+            return;
+        }
+
+        if (children && (parsedChildren === null || parsedChildren < 0 || !Number.isInteger(parsedChildren))) {
+            res.status(400).json({
+                data: null,
+                Status: { Code: 400, Message: "children must be a non-negative integer" }
+            });
+            return;
+        }
+
+        if (rawUnits && (parsedUnits === null || parsedUnits < 1 || !Number.isInteger(parsedUnits))) {
+            res.status(400).json({
+                data: null,
+                Status: { Code: 400, Message: "units must be a positive integer" }
+            });
+            return;
+        }
+
+        const hasDateFilter = Boolean(checkIn || checkOut);
+        let parsedCheckIn: Date | null = null;
+        let parsedCheckOut: Date | null = null;
+
+        if (hasDateFilter) {
+            if (!checkIn || !checkOut) {
+                res.status(400).json({
+                    data: null,
+                    Status: { Code: 400, Message: "checkIn and checkOut are required together" }
+                });
+                return;
+            }
+
+            parsedCheckIn = new Date(checkIn);
+            parsedCheckOut = new Date(checkOut);
+
+            if (Number.isNaN(parsedCheckIn.getTime()) || Number.isNaN(parsedCheckOut.getTime())) {
+                res.status(400).json({
+                    data: null,
+                    Status: { Code: 400, Message: "checkIn and checkOut must be valid dates" }
+                });
+                return;
+            }
+
+            if (!dayjs(parsedCheckOut).isAfter(dayjs(parsedCheckIn), 'day')) {
+                res.status(400).json({
+                    data: null,
+                    Status: { Code: 400, Message: "checkOut must be at least one day after checkIn" }
+                });
+                return;
+            }
+        }
+
+        const requestedUnits = parsedUnits ?? 1;
+        const requestedAdults = parsedAdults ?? 0;
+        const requestedChildren = parsedChildren ?? 0;
+        const hasOccupancyFilter = Boolean(adults || children || rawUnits);
         const filters: Record<string, unknown> = {};
 
         if (homestayOwnerId && Types.ObjectId.isValid(homestayOwnerId)) {
@@ -70,31 +204,183 @@ export const getAllHomestays = async (
         if (city) filters["address.City"] = new RegExp(city, "i");
         if (locality) filters["address.Locality"] = new RegExp(locality, "i");
         if (amenities) filters.amenities = { $all: amenities.split(',').map(item => item.trim()) };
-        if (minPrice || maxPrice) {
+        if (parsedMinPrice !== null || parsedMaxPrice !== null) {
             filters["units.price"] = {
-                ...(minPrice ? { $gte: Number(minPrice) } : {}),
-                ...(maxPrice ? { $lte: Number(maxPrice) } : {})
+                ...(parsedMinPrice !== null ? { $gte: parsedMinPrice } : {}),
+                ...(parsedMaxPrice !== null ? { $lte: parsedMaxPrice } : {})
             };
         }
 
         let query = Homestay.find(filters).sort({ _id: -1 });
 
-        if (lat && lng) {
+        if (parsedLat !== null && parsedLng !== null) {
             query = Homestay.find({
                 ...filters,
                 location: {
                     $near: {
                         $geometry: {
                             type: "Point",
-                            coordinates: [Number(lng), Number(lat)]
+                            coordinates: [parsedLng, parsedLat]
                         },
                         $maxDistance: 20000
                     }
                 }
-            });
+            }).sort({ _id: -1 });
         }
 
-        const data = await query.skip(Number(skip)).limit(Number(limit));
+        const shouldApplyAvailability = hasDateFilter || hasOccupancyFilter;
+
+        if (!shouldApplyAvailability) {
+            const data = await query.skip(parsedSkip).limit(parsedLimit);
+
+            res.status(200).json({ data: data as unknown as IHomestay[], Status: { Code: 200, Message: "Homestays fetched successfully" } });
+            return;
+        }
+
+        const homestays = await query;
+
+        if (!homestays.length) {
+            res.status(200).json({ data: [], Status: { Code: 200, Message: "Homestays fetched successfully" } });
+            return;
+        }
+
+        const bookedUnitsMap = new Map<string, number>();
+
+        if (parsedCheckIn && parsedCheckOut) {
+            const homestayIds = homestays.map((item) => new Types.ObjectId(String(item._id)));
+
+            const overlappingBookings = await Booking.aggregate<{
+                _id: { homestayId: Types.ObjectId; unitType: string; };
+                bookedUnits: number;
+            }>([
+                {
+                    $match: {
+                        bookingType: BookingType.Homestay,
+                        status: { $ne: BookingStatus.CANCELLED },
+                        'bookingDetails.ifHomeStayBooked.homestayId': { $in: homestayIds },
+                    }
+                },
+                {
+                    $match: {
+                        $expr: {
+                            $or: [
+                                {
+                                    $and: [
+                                        { $lte: ["$bookingDetails.ifHomeStayBooked.checkIn", parsedCheckIn] },
+                                        { $gt: ["$bookingDetails.ifHomeStayBooked.checkOut", parsedCheckIn] }
+                                    ]
+                                },
+                                {
+                                    $and: [
+                                        { $lt: ["$bookingDetails.ifHomeStayBooked.checkIn", parsedCheckOut] },
+                                        { $gte: ["$bookingDetails.ifHomeStayBooked.checkOut", parsedCheckOut] }
+                                    ]
+                                },
+                                {
+                                    $and: [
+                                        { $gte: ["$bookingDetails.ifHomeStayBooked.checkIn", parsedCheckIn] },
+                                        { $lte: ["$bookingDetails.ifHomeStayBooked.checkOut", parsedCheckOut] }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: {
+                            homestayId: "$bookingDetails.ifHomeStayBooked.homestayId",
+                            unitType: "$bookingDetails.ifHomeStayBooked.unitType",
+                        },
+                        bookedUnits: { $sum: "$bookingDetails.ifHomeStayBooked.units" }
+                    }
+                }
+            ]);
+
+            for (const booking of overlappingBookings) {
+                const key = `${String(booking._id.homestayId)}::${booking._id.unitType}`;
+                bookedUnitsMap.set(key, Number(booking.bookedUnits || 0));
+            }
+        }
+
+        const filteredHomestays = homestays.filter((homestay) => {
+            const unitTypeStats = new Map<string, {
+                totalUnits: number;
+                maxAdults: number;
+                maxChildren: number;
+                minPrice: number;
+                maxPrice: number;
+            }>();
+
+            for (const homestayUnit of homestay.units || []) {
+                const unitType = String(homestayUnit.type || '').trim();
+                if (!unitType) {
+                    continue;
+                }
+
+                const unitPrice = Number(homestayUnit.price || 0);
+                const unitMaxAdults = Number(homestayUnit.maxAdults || 0);
+                const unitMaxChildren = Number(homestayUnit.maxChildren || 0);
+
+                if (!unitTypeStats.has(unitType)) {
+                    unitTypeStats.set(unitType, {
+                        totalUnits: 1,
+                        maxAdults: unitMaxAdults,
+                        maxChildren: unitMaxChildren,
+                        minPrice: unitPrice,
+                        maxPrice: unitPrice,
+                    });
+                    continue;
+                }
+
+                const unitInfo = unitTypeStats.get(unitType) as {
+                    totalUnits: number;
+                    maxAdults: number;
+                    maxChildren: number;
+                    minPrice: number;
+                    maxPrice: number;
+                };
+
+                unitInfo.totalUnits += 1;
+                unitInfo.maxAdults = Math.max(unitInfo.maxAdults, unitMaxAdults);
+                unitInfo.maxChildren = Math.max(unitInfo.maxChildren, unitMaxChildren);
+                unitInfo.minPrice = Math.min(unitInfo.minPrice, unitPrice);
+                unitInfo.maxPrice = Math.max(unitInfo.maxPrice, unitPrice);
+            }
+
+            for (const [unitType, unitInfo] of unitTypeStats.entries()) {
+                const bookedUnits = parsedCheckIn && parsedCheckOut
+                    ? (bookedUnitsMap.get(`${String(homestay._id)}::${unitType}`) || 0)
+                    : 0;
+                const availableUnits = Math.max(0, unitInfo.totalUnits - bookedUnits);
+
+                if (availableUnits < requestedUnits) {
+                    continue;
+                }
+
+                if (requestedAdults > unitInfo.maxAdults * requestedUnits) {
+                    continue;
+                }
+
+                if (requestedChildren > unitInfo.maxChildren * requestedUnits) {
+                    continue;
+                }
+
+                if (parsedMinPrice !== null && unitInfo.maxPrice < parsedMinPrice) {
+                    continue;
+                }
+
+                if (parsedMaxPrice !== null && unitInfo.minPrice > parsedMaxPrice) {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
+        });
+
+        const data = filteredHomestays.slice(parsedSkip, parsedSkip + parsedLimit);
 
         res.status(200).json({ data: data as unknown as IHomestay[], Status: { Code: 200, Message: "Homestays fetched successfully" } });
     } catch (error) {
