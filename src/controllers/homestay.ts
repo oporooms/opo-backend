@@ -8,6 +8,75 @@ import User from "@/schemas/User";
 import dayjs from "dayjs";
 import { BookingStatus, BookingType } from "@/types/Bookings";
 import { UserRole } from "@/types/user";
+import { removeNoSqlInjection } from "@/functions";
+
+interface HomestayCitySuggestion {
+    cityId: string;
+    city: string;
+    state: string;
+    stateCode: string;
+    country: string;
+    countryCode: string;
+}
+
+const escapeRegex = (input: string): string => input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeCityInput = (input: string): string =>
+    String(input || "").trim().replace(/\s+/g, " ");
+
+const buildCityRegexFilters = (input: string): Record<string, RegExp>[] => {
+    const normalized = normalizeCityInput(input);
+    if (!normalized) {
+        return [];
+    }
+
+    const primaryToken = normalized.split(',')[0]?.trim() || normalized;
+    const lettersOnly = primaryToken.replace(/[^a-zA-Z]/g, '');
+
+    const fullRegex = new RegExp(escapeRegex(normalized), 'i');
+    const primaryRegex = primaryToken !== normalized
+        ? new RegExp(escapeRegex(primaryToken), 'i')
+        : null;
+    const prefixRegex = lettersOnly.length >= 3
+        ? new RegExp(`^${escapeRegex(lettersOnly.slice(0, 3))}`, 'i')
+        : null;
+
+    const fields = ["address.City", "address.Locality", "customAddress"] as const;
+    const filters: Record<string, RegExp>[] = [];
+
+    for (const field of fields) {
+        filters.push({ [field]: fullRegex });
+
+        if (primaryRegex) {
+            filters.push({ [field]: primaryRegex });
+        }
+
+        if (prefixRegex) {
+            filters.push({ [field]: prefixRegex });
+        }
+    }
+
+    return filters;
+};
+
+const parseAddressParts = (input: string): string[] =>
+    String(input || '')
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+const buildCitySuggestionScore = (query: string, suggestion: HomestayCitySuggestion): number => {
+    const q = query.toLowerCase();
+    const city = suggestion.city.toLowerCase();
+    const state = suggestion.state.toLowerCase();
+    const country = suggestion.country.toLowerCase();
+
+    if (city === q) return 4;
+    if (city.startsWith(q)) return 3;
+    if (city.includes(q)) return 2;
+    if (`${state} ${country}`.includes(q)) return 1;
+    return 0;
+};
 
 export const createHomestay = async (
     req: Request<{}, {}, Partial<IHomestay>>,
@@ -55,6 +124,102 @@ export const createHomestay = async (
         res.status(201).json({ data: homestay.toObject() as IHomestay, Status: { Code: 201, Message: "Homestay created successfully" } });
     } catch (error) {
         res.status(400).json({ data: null, Status: { Code: 400, Message: (error as Error).message } });
+    }
+};
+
+export const searchHomestayCity = async (
+    req: Request<{}, any, any, { city_name?: string }> ,
+    res: Response<DefaultResponseBody<HomestayCitySuggestion[]>>
+) => {
+    const cleanedInput = removeNoSqlInjection(String(req.query.city_name || ''));
+    const query = normalizeCityInput(cleanedInput);
+
+    if (!query) {
+        res.status(400).json({
+            data: null,
+            Status: { Code: 400, Message: "City name is required" }
+        });
+        return;
+    }
+
+    if (!/^\d+$/.test(query) && query.length < 3) {
+        res.status(400).json({
+            data: null,
+            Status: { Code: 400, Message: "City name must be at least 3 characters" }
+        });
+        return;
+    }
+
+    try {
+        const cityFilters = buildCityRegexFilters(query);
+
+        const matchedHomestays = await Homestay.find({
+            ...(cityFilters.length ? { $or: cityFilters } : {})
+        })
+            .select('address customAddress')
+            .limit(100)
+            .lean();
+
+        if (!matchedHomestays.length) {
+            res.status(404).json({
+                data: null,
+                Status: { Code: 404, Message: "No results found" }
+            });
+            return;
+        }
+
+        const cityMap = new Map<string, HomestayCitySuggestion>();
+
+        for (const homestay of matchedHomestays) {
+            const addressParts = parseAddressParts(homestay.customAddress || '');
+            const city = normalizeCityInput(homestay.address?.City || homestay.address?.Locality || addressParts[0] || '');
+
+            if (!city) {
+                continue;
+            }
+
+            const country = normalizeCityInput(addressParts[addressParts.length - 1] || 'India') || 'India';
+            const state = normalizeCityInput(addressParts[addressParts.length - 2] || '');
+            const countryCode = country.toLowerCase() === 'india' ? 'IN' : '';
+            const key = `${city.toLowerCase()}|${state.toLowerCase()}|${country.toLowerCase()}`;
+
+            if (!cityMap.has(key)) {
+                cityMap.set(key, {
+                    cityId: key,
+                    city,
+                    state,
+                    stateCode: '',
+                    country,
+                    countryCode
+                });
+            }
+        }
+
+        const suggestions = Array.from(cityMap.values())
+            .sort((a, b) => {
+                const scoreDiff = buildCitySuggestionScore(query, b) - buildCitySuggestionScore(query, a);
+                if (scoreDiff !== 0) return scoreDiff;
+                return a.city.localeCompare(b.city);
+            })
+            .slice(0, 20);
+
+        if (!suggestions.length) {
+            res.status(404).json({
+                data: null,
+                Status: { Code: 404, Message: "No results found" }
+            });
+            return;
+        }
+
+        res.status(200).json({
+            data: suggestions,
+            Status: { Code: 200, Message: 'OK' }
+        });
+    } catch (error) {
+        res.status(500).json({
+            data: null,
+            Status: { Code: 500, Message: (error as Error).message }
+        });
     }
 };
 
@@ -201,7 +366,12 @@ export const getAllHomestays = async (
             filters.homestayOwnerId = new Types.ObjectId(homestayOwnerId);
         }
         if (name) filters.name = new RegExp(name, "i");
-        if (city) filters["address.City"] = new RegExp(city, "i");
+        if (city) {
+            const cityFilters = buildCityRegexFilters(city);
+            if (cityFilters.length) {
+                filters.$or = cityFilters;
+            }
+        }
         if (locality) filters["address.Locality"] = new RegExp(locality, "i");
         if (amenities) filters.amenities = { $all: amenities.split(',').map(item => item.trim()) };
         if (parsedMinPrice !== null || parsedMaxPrice !== null) {
