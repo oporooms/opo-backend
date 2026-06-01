@@ -57,6 +57,8 @@ export const sendOtp = async (
     "8088676065",
     "7483462760",
     "7766942151",
+    "9311558363",
+    "9599093701"
   ];
   const otp = defaultNum.includes(validate.cleanedPhone) ? "123456" : generatedOtp;
   const userIp =
