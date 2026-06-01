@@ -100,7 +100,7 @@ export const createUser = async (
     req: Request<{}, {}, Partial<IUser>>,
     res: Response<DefaultResponseBody<IUser>>
 ) => {
-    const { fullname, email, phone, gstDetails } = req.body;
+    const { fullname, email, phone, gstDetails, userRole } = req.body;
     const createdBy = req.user?.userId;
 
     if (!createdBy) {
@@ -119,6 +119,7 @@ export const createUser = async (
         email,
         phone,
         gstDetails,
+        userRole: userRole || UserRole.USER,
         createdBy
     });
 
