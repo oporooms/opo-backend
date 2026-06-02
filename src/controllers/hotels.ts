@@ -634,12 +634,8 @@ export const updateHotel = async (
         }
 
         const user = await User.findOne({
-            _id: new Types.ObjectId(userId), userRole: {
-                $or: [
-                    { $eq: UserRole.HotelOwner },
-                    { $eq: UserRole.SADMIN }
-                ]
-            }
+            _id: new Types.ObjectId(userId),
+            userRole: { $in: [UserRole.HotelOwner, UserRole.SADMIN] }
         }).lean();
 
         if (!user) {
