@@ -1,18 +1,16 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "src/index.ts",
-            "use": "@vercel/node",
-            "config": {
-                "maxLambdaSize": "50mb"
-            }
-        }
-    ],
-    "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "src/index.ts"
-        }
-    ]
+  "version": 2,
+  "buildCommand": "npm run build",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ],
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  }
 }
