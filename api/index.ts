@@ -1,6 +1,7 @@
+import "module-alias/register";
 import type { NextFunction, Request, Response } from "express";
-import app from "../src/app";
-import { connectDB } from "../src/config/mongo";
+import app from "../dist/app";
+import { connectDB } from "../dist/config/mongo";
 
 const MONGO_URI = process.env.MONGO_URI || "";
 let dbReady: Promise<unknown> | null = null;
