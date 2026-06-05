@@ -47,6 +47,7 @@ if (process.env.NODE_ENV === "production") {
 const app = express();
 const PORT = Number(process.env.PORT) || 8000;
 
+
 // CORS configuration
 const allowedOrigins = [
   "http://localhost:3000",
