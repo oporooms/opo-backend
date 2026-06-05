@@ -27,6 +27,7 @@ jobs:
         node: [22.x]
     env:
       NODE_ENV: test
+      NODE_OPTIONS: "--max-old-space-size=4096"
       CI: true
     steps:
       - name: Checkout repository
