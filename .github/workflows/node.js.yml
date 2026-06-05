@@ -60,6 +60,8 @@ jobs:
           if-no-files-found: ignore
 
   deploy:
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
     name: Deploy with PM2
     runs-on: self-hosted
     needs: quality
