@@ -61,6 +61,7 @@ const allowedOrigins = [
   "https://www.opotravel.in",
   "https://o9-frontend.vercel.app",
   "https://o9-admin.vercel.app",
+  "https://www.o9stay.com"
 ];
 
 // Keep full-origin strings for exact matches, and also derive hostnames so
@@ -117,6 +118,9 @@ const isOriginAllowed = (origin?: string): boolean => {
       return true;
     }
     if (u.hostname === "o9-admin.vercel.app" || u.hostname.endsWith(".o9-admin.vercel.app") ) {
+      return true;
+    }
+    if (u.hostname === "o9stay.com" || u.hostname.endsWith(".o9stay.com") ) {
       return true;
     }
 
